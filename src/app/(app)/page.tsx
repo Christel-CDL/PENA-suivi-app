@@ -23,7 +23,7 @@ export default async function DashboardPage({
   const user = (await getCurrentUser())!;
   const { site } = await searchParams;
   const dossier = filterDossierBySite(await loadDossier(user), site);
-  const { sites, taches, journal } = dossier;
+  const { sites, taches } = dossier;
 
   const today = new Date().toISOString().slice(0, 10);
   const enCours = taches.filter((t) => t.statut === "En cours").length;
@@ -38,7 +38,15 @@ export default async function DashboardPage({
     .sort((a, b) => (a.echeance! < b.echeance! ? -1 : 1))
     .slice(0, 6);
 
-  const dernieresEntrees = journal.slice(0, 6);
+  const mesTachesUrgentes = taches
+    .filter(
+      (t) =>
+        t.priorite === "Urgente" &&
+        t.statut !== "Terminé" &&
+        t.statut !== "Annulée" &&
+        (user.contactId ? t.responsableContactIds.includes(user.contactId) : false),
+    )
+    .sort((a, b) => (a.echeance ?? "9999") < (b.echeance ?? "9999") ? -1 : 1);
 
   // Chaque tuile renvoie vers /taches avec le filtre correspondant, en conservant
   // le site actuellement sélectionné sur le tableau de bord.
@@ -104,16 +112,20 @@ export default async function DashboardPage({
         </section>
 
         <section>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">Dernières entrées de journal</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">Mes tâches urgentes</h2>
           <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-            {dernieresEntrees.length === 0 && (
-              <p className="p-4 text-sm text-slate-500">Aucune entrée récente.</p>
+            {mesTachesUrgentes.length === 0 && (
+              <p className="p-4 text-sm text-slate-500">Aucune tâche urgente qui vous soit assignée.</p>
             )}
-            {dernieresEntrees.map((j) => (
-              <div key={j.id} className="p-3 text-sm">
-                <p className="text-slate-800 line-clamp-2">{j.description}</p>
-                <p className="mt-1 text-xs text-slate-400">{formatDate(j.date)}</p>
-              </div>
+            {mesTachesUrgentes.map((t) => (
+              <Link
+                key={t.id}
+                href={`/taches/${t.id}`}
+                className="flex items-center justify-between gap-3 p-3 text-sm hover:bg-slate-50"
+              >
+                <span className="text-slate-800">{t.nom}</span>
+                <span className="whitespace-nowrap text-slate-500">{formatDate(t.echeance)}</span>
+              </Link>
             ))}
           </div>
         </section>
