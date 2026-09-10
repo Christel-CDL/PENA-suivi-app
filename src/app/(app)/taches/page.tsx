@@ -120,8 +120,8 @@ export default async function TachesPage({
 
       {groupes.map((groupe) => (
         <section key={groupe.id}>
-          <h2 className="mb-2 text-sm font-semibold text-slate-700">
-            {groupe.nom} <span className="font-normal text-slate-400">({groupe.taches.length})</span>
+          <h2 className="mb-2 text-lg font-semibold text-slate-800">
+            {groupe.nom} <span className="text-sm font-normal text-slate-400">({groupe.taches.length})</span>
           </h2>
           <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
             {groupe.taches.map((t) => (
