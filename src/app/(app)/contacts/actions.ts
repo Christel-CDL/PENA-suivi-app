@@ -15,6 +15,7 @@ function readInput(formData: FormData): ContactInput {
     email: String(formData.get("email") ?? "").trim(),
     telephone: String(formData.get("telephone") ?? "").trim(),
     projetIds: formData.getAll("projetIds").map(String),
+    categories: formData.getAll("categories").map(String),
   };
 }
 

@@ -21,10 +21,16 @@ export function TaskEditForm({
   const [state, formAction, pending] = useActionState(updateTacheAction, initialState);
   const [showNewPrestataire, setShowNewPrestataire] = useState(false);
 
-  const contactOptions = contacts
-    .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
+  const toOption = (c: Contact) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom });
+  const allContactOptions = contacts.map(toOption).sort((a, b) => a.label.localeCompare(b.label));
+  // Le champ de recherche ne propose que les contacts tagués "Prestataire"
+  // (voir Catégorie sur la fiche contact) ; la valeur déjà assignée reste
+  // affichée même si elle n'est pas/plus tagée ainsi.
+  const prestataireOptions = contacts
+    .filter((c) => c.categories.includes("Prestataire"))
+    .map(toOption)
     .sort((a, b) => a.label.localeCompare(b.label));
-  const prestataireActuel = contactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
+  const prestataireActuel = allContactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
 
   return (
     <div className="space-y-3">
@@ -66,7 +72,7 @@ export function TaskEditForm({
 
           <label className="text-sm">
             <span className="mb-1 block text-slate-600">Prestataire</span>
-            <ContactPicker name="prestataireContactId" contacts={contactOptions} defaultValue={prestataireActuel} />
+            <ContactPicker name="prestataireContactId" contacts={prestataireOptions} defaultValue={prestataireActuel} />
             {tache.prestataireContactIds.length === 0 && tache.prestataireAncienTexte && (
               <p className="mt-1 text-xs text-slate-400">
                 Ancienne valeur non liée à un contact : {tache.prestataireAncienTexte}

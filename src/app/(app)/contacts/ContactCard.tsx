@@ -27,6 +27,15 @@ export function ContactCard({
           <p className="text-sm text-slate-500">
             {[contact.fonction, contact.organisation].filter(Boolean).join(" · ")}
           </p>
+          {contact.categories.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {contact.categories.map((cat) => (
+                <span key={cat} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  {cat}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         {isAdmin && (
           <button onClick={() => setEditing(true)} className="text-xs text-slate-500 underline hover:text-slate-900">

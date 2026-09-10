@@ -11,6 +11,7 @@ export type Contact = {
   email: string;
   telephone: string;
   projetIds: string[];
+  categories: string[];
 };
 
 type RawFields = {
@@ -21,6 +22,7 @@ type RawFields = {
   [F.EMAIL]?: string;
   [F.TELEPHONE]?: string;
   [F.PROJETS_ASSOCIES]?: string[];
+  [F.CATEGORIE]?: string[];
 };
 
 export async function listContacts(): Promise<Contact[]> {
@@ -34,6 +36,7 @@ export async function listContacts(): Promise<Contact[]> {
     email: r.fields[F.EMAIL] ?? "",
     telephone: r.fields[F.TELEPHONE] ?? "",
     projetIds: r.fields[F.PROJETS_ASSOCIES] ?? [],
+    categories: r.fields[F.CATEGORIE] ?? [],
   }));
 }
 
@@ -44,6 +47,7 @@ export type ContactInput = {
   email?: string;
   telephone?: string;
   projetIds?: string[];
+  categories?: string[];
 };
 
 /** Création/modification — réservées à l'Admin (voir lib/auth/rbac.ts). */
@@ -57,6 +61,7 @@ export async function createContact(input: ContactInput) {
         [F.EMAIL]: input.email ?? "",
         [F.TELEPHONE]: input.telephone ?? "",
         [F.PROJETS_ASSOCIES]: input.projetIds ?? [],
+        [F.CATEGORIE]: input.categories ?? [],
       },
     },
   ]);
@@ -74,6 +79,7 @@ export async function updateContact(id: string, input: ContactInput) {
         [F.EMAIL]: input.email ?? "",
         [F.TELEPHONE]: input.telephone ?? "",
         [F.PROJETS_ASSOCIES]: input.projetIds ?? [],
+        [F.CATEGORIE]: input.categories ?? [],
       },
     },
   ]);

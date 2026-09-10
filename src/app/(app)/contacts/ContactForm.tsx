@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createContactAction, updateContactAction, type FormState } from "./actions";
+import { CONTACT_CATEGORIES } from "@/lib/airtable/constants";
 import type { Contact } from "@/lib/airtable/contacts";
 
 const initialState: FormState = { status: "idle" };
@@ -23,6 +24,15 @@ function Fields({ contact, sites }: { contact?: Contact; sites: Site[] }) {
           </option>
         ))}
       </select>
+      <div className="flex flex-wrap items-center gap-3 text-sm sm:col-span-2">
+        <span className="text-slate-500">Catégorie :</span>
+        {CONTACT_CATEGORIES.map((cat) => (
+          <label key={cat} className="flex items-center gap-1.5">
+            <input type="checkbox" name="categories" value={cat} defaultChecked={contact?.categories.includes(cat)} />
+            {cat}
+          </label>
+        ))}
+      </div>
     </div>
   );
 }

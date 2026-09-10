@@ -70,7 +70,12 @@ export const CONTACTS_FIELDS = {
   EMAIL: "fldOjp5wilEF5M319",
   TELEPHONE: "fldEmrLl4xAZuYFLY",
   PROJETS_ASSOCIES: "fldIJIqMJ2Chon9Kc",
+  CATEGORIE: "fldT8MxgsBv2Ka9cV",
 } as const;
+
+// Utilisé pour limiter les champs de recherche de contact (Responsable,
+// Prestataire, Parties prenantes) aux personnes taguées en conséquence.
+export const CONTACT_CATEGORIES = ["Équipe projet", "Prestataire", "Partie prenante"] as const;
 
 export const DOCUMENTS_FIELDS = {
   TITRE: "fldQNBZjuwogiVPth",

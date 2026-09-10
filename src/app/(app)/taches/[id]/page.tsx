@@ -30,9 +30,23 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
   const prestataires = tache.prestataireContactIds.map((cid) => contactsById.get(cid)?.nom).filter(isNom);
   const historique = dossier.journal.filter((j) => j.tacheIds.includes(id));
 
-  const contactOptions = dossier.contacts
-    .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
+  const toOption = (c: (typeof dossier.contacts)[number]) => ({
+    id: c.id,
+    label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom,
+  });
+  // Le champ de recherche de chaque rôle ne propose que les contacts tagués
+  // en conséquence (voir Catégorie sur la fiche contact) — sinon la liste
+  // mélange prestataires, équipe PENA/CDL et interlocuteurs externes.
+  const contactOptions = dossier.contacts.map(toOption).sort((a, b) => a.label.localeCompare(b.label));
+  const equipeProjetOptions = dossier.contacts
+    .filter((c) => c.categories.includes("Équipe projet"))
+    .map(toOption)
     .sort((a, b) => a.label.localeCompare(b.label));
+  const partiePrenanteOptions = dossier.contacts
+    .filter((c) => c.categories.includes("Partie prenante"))
+    .map(toOption)
+    .sort((a, b) => a.label.localeCompare(b.label));
+
   const responsableActuel = contactOptions.find((c) => c.id === tache.responsableContactIds[0]);
   const partiesPrenantesActuelles = contactOptions.filter((c) => tache.partiesPrenantesIds.includes(c.id));
 
@@ -49,14 +63,14 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           tacheId={tache.id}
           responsables={responsables}
           responsableActuel={responsableActuel}
-          contacts={contactOptions}
+          contacts={equipeProjetOptions}
           isAdmin={admin}
         />
         <PartiesPrenantesField
           key={`pp-${JSON.stringify(tache.partiesPrenantesIds)}`}
           tacheId={tache.id}
           initial={partiesPrenantesActuelles}
-          contacts={contactOptions}
+          contacts={partiePrenanteOptions}
           editable={editable}
         />
         {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
