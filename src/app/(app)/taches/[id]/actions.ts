@@ -64,10 +64,11 @@ export async function addCommentAction(_prev: FormState, formData: FormData): Pr
 }
 
 /**
- * Assigne (ou change) le prestataire d'une tâche — mêmes droits que le
- * reste de la fiche (Admin, ou le responsable actuel : le cahier des
- * charges liste explicitement "prestataire" parmi les champs qu'un
- * Contributeur peut modifier librement sur ses propres tâches, section 5).
+ * Ajoute ou retire un prestataire — mêmes droits que le reste de la fiche
+ * (Admin, ou le responsable actuel : le cahier des charges liste
+ * explicitement "prestataire" parmi les champs qu'un Contributeur peut
+ * modifier librement sur ses propres tâches, section 5). Une tâche peut
+ * avoir plusieurs prestataires (champ Airtable multipleRecordLinks).
  */
 export async function updatePrestataireAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await getCurrentUser();
@@ -81,18 +82,19 @@ export async function updatePrestataireAction(_prev: FormState, formData: FormDa
     return { status: "error", message: "Vous n'êtes pas responsable de cette tâche." };
   }
 
-  const prestataireContactId = String(formData.get("prestataireContactId") ?? "");
-  await updateTacheFields(id, { prestataireContactIds: prestataireContactId ? [prestataireContactId] : [] });
+  const prestataireContactIds = formData.getAll("prestataireContactIds").map(String);
+  await updateTacheFields(id, { prestataireContactIds });
 
   revalidatePath(`/taches/${id}`);
   revalidatePath("/taches");
   revalidatePath("/");
-  return { status: "success", message: "Prestataire mis à jour." };
+  return { status: "success", message: "Prestataires mis à jour." };
 }
 
 /**
- * Crée un nouveau contact et l'assigne immédiatement comme prestataire de la
- * tâche — réservé à l'Admin, comme toute création de contact (section 5).
+ * Crée un nouveau contact et l'ajoute immédiatement aux prestataires de la
+ * tâche (sans retirer ceux déjà assignés) — réservé à l'Admin, comme toute
+ * création de contact (section 5).
  */
 export async function createPrestataireAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await getCurrentUser();
@@ -103,6 +105,9 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
   }
 
   const id = String(formData.get("id"));
+  const tache = await getTache(id);
+  if (!tache) return { status: "error", message: "Tâche introuvable." };
+
   const nom = String(formData.get("nom") ?? "").trim();
   if (!nom) return { status: "error", message: "Le nom du prestataire est obligatoire." };
 
@@ -114,12 +119,12 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
     telephone: String(formData.get("telephone") ?? "").trim(),
     categories: formData.getAll("categories").map(String),
   });
-  await updateTacheFields(id, { prestataireContactIds: [contact.id] });
+  await updateTacheFields(id, { prestataireContactIds: [...tache.prestataireContactIds, contact.id] });
 
   revalidatePath(`/taches/${id}`);
   revalidatePath("/taches");
   revalidatePath("/contacts");
-  return { status: "success", message: `Contact « ${nom} » créé et assigné comme prestataire.` };
+  return { status: "success", message: `Contact « ${nom} » créé et ajouté aux prestataires.` };
 }
 
 /**

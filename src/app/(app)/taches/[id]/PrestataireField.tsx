@@ -9,80 +9,102 @@ const initialState: FormState = { status: "idle" };
 
 type ContactOption = { id: string; label: string };
 
+/**
+ * Même design que Parties prenantes (puces + recherche pour en ajouter) :
+ * une tâche peut avoir plusieurs prestataires, comme le permet le champ
+ * Airtable (multipleRecordLinks). Seule différence : l'Admin peut aussi
+ * créer un nouveau contact directement d'ici, tagué Prestataire.
+ */
 export function PrestataireField({
   tacheId,
-  prestataires,
+  initial,
   prestataireAncienTexte,
-  prestataireActuel,
   contacts,
   editable,
   isAdmin,
 }: {
   tacheId: string;
-  /** Noms affichés en lecture seule (peut rester vide). */
-  prestataires: string[];
+  initial: ContactOption[];
   /** Ancienne valeur texte libre, affichée si aucun contact n'est encore lié. */
   prestataireAncienTexte: string;
-  /** Contact actuellement assigné, pour préremplir le champ de recherche. */
-  prestataireActuel?: ContactOption;
   contacts: ContactOption[];
   editable: boolean;
   isAdmin: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(updatePrestataireAction, initialState);
+  const [current, setCurrent] = useState<ContactOption[]>(initial);
+  const [adding, setAdding] = useState(false);
   const [showNewPrestataire, setShowNewPrestataire] = useState(false);
 
-  const label =
-    prestataires.length > 0
-      ? `Prestataire : ${prestataires.join(", ")}`
-      : prestataireAncienTexte
-        ? `Prestataire (ancienne valeur) : ${prestataireAncienTexte}`
-        : "Aucun prestataire assigné";
+  const changed = current.length !== initial.length || current.some((c, i) => c.id !== initial[i]?.id);
 
-  if (!editable) {
-    return <p className="mt-1 text-sm text-slate-500">{label}</p>;
-  }
-
-  if (!editing) {
-    return (
-      <p className="mt-1 text-sm text-slate-500">
-        {label}{" "}
-        <button onClick={() => setEditing(true)} className="text-slate-500 underline hover:text-slate-900">
-          {prestataires.length > 0 ? "Modifier" : "Assigner un prestataire"}
-        </button>
-      </p>
-    );
-  }
+  if (!editable && current.length === 0 && !prestataireAncienTexte) return null;
 
   return (
-    <div className="mt-2 space-y-2">
-      <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <div className="mt-1">
+      <form action={formAction} className="text-sm text-slate-500">
         <input type="hidden" name="id" value={tacheId} />
-        <div className="w-64">
-          <ContactPicker
-            name="prestataireContactId"
-            contacts={contacts}
-            defaultValue={prestataireActuel}
-            placeholder="Rechercher un contact…"
-          />
+        {current.map((c) => (
+          <input key={c.id} type="hidden" name="prestataireContactIds" value={c.id} />
+        ))}
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span>Prestataire{current.length > 1 ? "s" : ""} :</span>
+          {current.length === 0 && (
+            <span className="text-slate-400">
+              {prestataireAncienTexte ? `${prestataireAncienTexte} (ancienne valeur)` : "aucun"}
+            </span>
+          )}
+          {current.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+              {c.label}
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setCurrent((list) => list.filter((x) => x.id !== c.id))}
+                  className="text-slate-400 hover:text-slate-700"
+                  aria-label={`Retirer ${c.label}`}
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          ))}
+          {editable && !adding && (
+            <button type="button" onClick={() => setAdding(true)} className="text-xs text-slate-500 underline hover:text-slate-900">
+              + Ajouter
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowNewPrestataire((v) => !v)}
+              className="text-xs text-slate-500 underline hover:text-slate-900"
+            >
+              {showNewPrestataire ? "Annuler la création" : "+ Nouveau contact"}
+            </button>
+          )}
+          {editable && changed && (
+            <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+              {pending ? "…" : "Enregistrer"}
+            </button>
+          )}
+          {state.status === "error" && <span className="text-xs text-red-600">{state.message}</span>}
         </div>
-        <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
-          {pending ? "…" : "Enregistrer"}
-        </button>
-        <button type="button" onClick={() => setEditing(false)} className="text-xs text-slate-500">
-          Annuler
-        </button>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setShowNewPrestataire((v) => !v)}
-            className="text-xs text-slate-500 underline hover:text-slate-900"
-          >
-            {showNewPrestataire ? "Annuler la création" : "+ Nouveau prestataire"}
-          </button>
+
+        {editable && adding && (
+          <div className="mt-2 w-64">
+            <ContactPicker
+              contacts={contacts}
+              excludeIds={current.map((c) => c.id)}
+              onPick={(c) => {
+                setCurrent((list) => [...list, c]);
+                setAdding(false);
+              }}
+              placeholder="Ajouter un prestataire…"
+            />
+          </div>
         )}
-        {state.status === "error" && <span className="text-xs text-red-600">{state.message}</span>}
       </form>
 
       {isAdmin && showNewPrestataire && (
@@ -104,7 +126,7 @@ function NewPrestataireForm({ tacheId, onDone }: { tacheId: string; onDone: () =
   }
 
   return (
-    <form action={formAction} className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+    <form action={formAction} className="mt-2 space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
       <input type="hidden" name="id" value={tacheId} />
       <p className="text-sm font-medium text-slate-700">Nouveau contact prestataire</p>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -125,7 +147,7 @@ function NewPrestataireForm({ tacheId, onDone }: { tacheId: string; onDone: () =
       </div>
       <div className="flex items-center gap-3 pt-1">
         <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-          {pending ? "Création…" : "Créer et assigner"}
+          {pending ? "Création…" : "Créer et ajouter"}
         </button>
         {state.status === "error" && <span className="text-sm text-red-600">{state.message}</span>}
       </div>

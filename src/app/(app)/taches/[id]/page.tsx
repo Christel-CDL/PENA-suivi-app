@@ -28,7 +28,6 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
   const isNom = (n: string | undefined): n is string => Boolean(n);
   const responsables = tache.responsableContactIds.map((cid) => contactsById.get(cid)?.nom).filter(isNom);
-  const prestataires = tache.prestataireContactIds.map((cid) => contactsById.get(cid)?.nom).filter(isNom);
   const historique = dossier.journal.filter((j) => j.tacheIds.includes(id));
 
   const toOption = (c: (typeof dossier.contacts)[number]) => ({
@@ -58,7 +57,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
 
   const responsableActuel = contactOptions.find((c) => c.id === tache.responsableContactIds[0]);
   const partiesPrenantesActuelles = contactOptions.filter((c) => tache.partiesPrenantesIds.includes(c.id));
-  const prestataireActuel = contactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
+  const prestatairesActuels = contactOptions.filter((c) => tache.prestataireContactIds.includes(c.id));
 
   return (
     <div className="space-y-6">
@@ -86,9 +85,8 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
         <PrestataireField
           key={`prest-${JSON.stringify(tache.prestataireContactIds)}`}
           tacheId={tache.id}
-          prestataires={prestataires}
+          initial={prestatairesActuels}
           prestataireAncienTexte={tache.prestataireAncienTexte}
-          prestataireActuel={prestataireActuel}
           contacts={prestataireOptions}
           editable={editable}
           isAdmin={admin}
