@@ -21,6 +21,16 @@ export function JournalEntryRow({
   const [updateState, updateAction, updatePending] = useActionState(updateJournalEntryAction, initialState);
   const [deleteState, deleteAction, deletePending] = useActionState(deleteJournalEntryAction, initialState);
 
+  // useActionState ne referme pas le formulaire tout seul : sans ça,
+  // l'enregistrement réussi donne l'impression de n'avoir rien fait. On
+  // détecte le passage à "success" pendant le rendu (pattern recommandé par
+  // React pour ajuster un état suite à un changement, plutôt qu'un effet).
+  const [lastHandledUpdate, setLastHandledUpdate] = useState(updateState);
+  if (updateState !== lastHandledUpdate) {
+    setLastHandledUpdate(updateState);
+    if (updateState.status === "success" && editing) setEditing(false);
+  }
+
   if (editing) {
     return (
       <form action={updateAction} className="space-y-2 p-4 text-sm">
