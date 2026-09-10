@@ -10,17 +10,23 @@ import { TACHE_STATUTS } from "@/lib/airtable/constants";
 export default async function TachesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; statut?: string; q?: string }>;
+  searchParams: Promise<{ site?: string; statut?: string; q?: string; priorite?: string; echeance?: string }>;
 }) {
   const user = (await getCurrentUser())!;
-  const { site, statut, q } = await searchParams;
+  const { site, statut, q, priorite, echeance } = await searchParams;
   const dossier = filterDossierBySite(await loadDossier(user), site);
 
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
   const query = (q ?? "").trim().toLowerCase();
+  const priorites = priorite ? priorite.split(",") : null;
+  const today = new Date().toISOString().slice(0, 10);
 
   const taches = dossier.taches.filter((t) => {
     if (statut && t.statut !== statut) return false;
+    if (priorites && !priorites.includes(t.priorite)) return false;
+    if (echeance === "depassee") {
+      if (!t.echeance || t.echeance >= today || t.statut === "Terminé" || t.statut === "Annulée") return false;
+    }
     if (query && !t.nom.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -53,6 +59,17 @@ export default async function TachesPage({
           Filtrer
         </button>
       </form>
+
+      {(priorites || echeance === "depassee") && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+          <span>
+            Filtre actif : {priorites ? `priorité ${priorites.join(" ou ")}` : "échéances dépassées"}
+          </span>
+          <Link href={site ? `/taches?site=${site}` : "/taches"} className="text-slate-500 underline hover:text-slate-900">
+            Réinitialiser
+          </Link>
+        </div>
+      )}
 
       <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
         {taches.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune tâche ne correspond.</p>}

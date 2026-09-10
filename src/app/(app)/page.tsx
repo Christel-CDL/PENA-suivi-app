@@ -6,12 +6,12 @@ import { SiteFilterTabs } from "@/components/SiteFilterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, href }: { label: string; value: number; href: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <Link href={href} className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-300 hover:bg-slate-50">
       <p className="text-2xl font-semibold text-slate-900">{value}</p>
       <p className="text-sm text-slate-500">{label}</p>
-    </div>
+    </Link>
   );
 }
 
@@ -40,6 +40,15 @@ export default async function DashboardPage({
 
   const dernieresEntrees = journal.slice(0, 6);
 
+  // Chaque tuile renvoie vers /taches avec le filtre correspondant, en conservant
+  // le site actuellement sélectionné sur le tableau de bord.
+  const tachesHref = (params: Record<string, string>) => {
+    const search = new URLSearchParams(params);
+    if (site) search.set("site", site);
+    const qs = search.toString();
+    return qs ? `/taches?${qs}` : "/taches";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -48,24 +57,28 @@ export default async function DashboardPage({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Tâches suivies" value={taches.length} />
-        <Stat label="En cours" value={enCours} />
-        <Stat label="À engager" value={aEngager} />
-        <Stat label="Priorité haute / urgente" value={prioritaires} />
-        <Stat label="Échéances dépassées" value={enRetard} />
+        <Stat label="Tâches suivies" value={taches.length} href={tachesHref({})} />
+        <Stat label="En cours" value={enCours} href={tachesHref({ statut: "En cours" })} />
+        <Stat label="À engager" value={aEngager} href={tachesHref({ statut: "À faire" })} />
+        <Stat label="Priorité haute / urgente" value={prioritaires} href={tachesHref({ priorite: "Urgente,Haute" })} />
+        <Stat label="Échéances dépassées" value={enRetard} href={tachesHref({ echeance: "depassee" })} />
       </div>
 
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Sites suivis</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {sites.map((s) => (
-            <div key={s.id} className="rounded-lg border border-slate-200 bg-white p-4">
+            <Link
+              key={s.id}
+              href={`/?site=${s.id}`}
+              className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-300 hover:bg-slate-50"
+            >
               <p className="font-medium text-slate-900">{s.nom}</p>
               <p className="text-sm text-slate-500">{s.regime}</p>
               <div className="mt-2">
                 <StatusBadge value={s.statut} />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
