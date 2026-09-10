@@ -23,14 +23,11 @@ export async function updateTacheAction(_prev: FormState, formData: FormData): P
     return { status: "error", message: "Vous n'êtes pas responsable de cette tâche." };
   }
 
-  const prestataireContactId = String(formData.get("prestataireContactId") ?? "");
-
   await updateTacheFields(id, {
     statut: String(formData.get("statut") ?? tache.statut),
     priorite: String(formData.get("priorite") ?? tache.priorite),
     echeance: (formData.get("echeance") as string) || null,
     description: String(formData.get("description") ?? tache.description),
-    prestataireContactIds: prestataireContactId ? [prestataireContactId] : [],
   });
 
   revalidatePath(`/taches/${id}`);
@@ -64,6 +61,33 @@ export async function addCommentAction(_prev: FormState, formData: FormData): Pr
   revalidatePath("/journal");
   revalidatePath("/");
   return { status: "success", message: "Commentaire ajouté." };
+}
+
+/**
+ * Assigne (ou change) le prestataire d'une tâche — mêmes droits que le
+ * reste de la fiche (Admin, ou le responsable actuel : le cahier des
+ * charges liste explicitement "prestataire" parmi les champs qu'un
+ * Contributeur peut modifier librement sur ses propres tâches, section 5).
+ */
+export async function updatePrestataireAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!user) return { status: "error", message: "Session expirée, reconnectez-vous." };
+
+  const id = String(formData.get("id"));
+  const tache = await getTache(id);
+  if (!tache) return { status: "error", message: "Tâche introuvable." };
+
+  if (!canEditTask(user, tache)) {
+    return { status: "error", message: "Vous n'êtes pas responsable de cette tâche." };
+  }
+
+  const prestataireContactId = String(formData.get("prestataireContactId") ?? "");
+  await updateTacheFields(id, { prestataireContactIds: prestataireContactId ? [prestataireContactId] : [] });
+
+  revalidatePath(`/taches/${id}`);
+  revalidatePath("/taches");
+  revalidatePath("/");
+  return { status: "success", message: "Prestataire mis à jour." };
 }
 
 /**

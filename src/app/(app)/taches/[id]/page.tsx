@@ -9,6 +9,7 @@ import { TaskEditForm } from "./TaskEditForm";
 import { CommentForm } from "./CommentForm";
 import { ResponsableField } from "./ResponsableField";
 import { PartiesPrenantesField } from "./PartiesPrenantesField";
+import { PrestataireField } from "./PrestataireField";
 import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,9 +51,14 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
     .filter((c) => c.categories.length > 0)
     .map(toOption)
     .sort((a, b) => a.label.localeCompare(b.label));
+  const prestataireOptions = dossier.contacts
+    .filter((c) => c.categories.includes("Prestataire"))
+    .map(toOption)
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const responsableActuel = contactOptions.find((c) => c.id === tache.responsableContactIds[0]);
   const partiesPrenantesActuelles = contactOptions.filter((c) => tache.partiesPrenantesIds.includes(c.id));
+  const prestataireActuel = contactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
 
   return (
     <div className="space-y-6">
@@ -77,6 +83,16 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           contacts={partiePrenanteOptions}
           editable={editable}
         />
+        <PrestataireField
+          key={`prest-${JSON.stringify(tache.prestataireContactIds)}`}
+          tacheId={tache.id}
+          prestataires={prestataires}
+          prestataireAncienTexte={tache.prestataireAncienTexte}
+          prestataireActuel={prestataireActuel}
+          contacts={prestataireOptions}
+          editable={editable}
+          isAdmin={admin}
+        />
       </div>
 
       {editable ? (
@@ -85,7 +101,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
         // les nouvelles valeurs au lieu de garder affichées celles du premier
         // rendu (sinon la modification semble "revenir" en arrière alors
         // qu'elle est bien enregistrée dans Airtable).
-        <TaskEditForm key={JSON.stringify(tache)} tache={tache} contacts={dossier.contacts} isAdmin={isAdmin(user)} />
+        <TaskEditForm key={JSON.stringify(tache)} tache={tache} />
       ) : (
         <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
           <p className="text-slate-500">
@@ -95,12 +111,6 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
             <span className="text-slate-500">Échéance : </span>
             {formatDate(tache.echeance)}
           </p>
-          {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
-            <p>
-              <span className="text-slate-500">Prestataire : </span>
-              {prestataires.length > 0 ? prestataires.join(", ") : `${tache.prestataireAncienTexte} (ancienne valeur)`}
-            </p>
-          )}
           <p className="whitespace-pre-wrap">{tache.description || "Aucune description."}</p>
         </div>
       )}
