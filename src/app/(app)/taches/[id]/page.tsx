@@ -40,7 +40,12 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {editable ? (
-        <TaskEditForm tache={tache} />
+        // key forcé sur les valeurs de la tâche : après un enregistrement réussi,
+        // le formulaire (champs non contrôlés) doit se remonter pour refléter
+        // les nouvelles valeurs au lieu de garder affichées celles du premier
+        // rendu (sinon la modification semble "revenir" en arrière alors
+        // qu'elle est bien enregistrée dans Airtable).
+        <TaskEditForm key={JSON.stringify(tache)} tache={tache} />
       ) : (
         <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
           <p className="text-slate-500">
