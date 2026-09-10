@@ -4,7 +4,6 @@ import { useActionState, useState } from "react";
 import { updateTacheAction, createPrestataireAction, type FormState } from "./actions";
 import { TACHE_STATUTS, TACHE_PRIORITES, CONTACT_CATEGORIES } from "@/lib/airtable/constants";
 import { ContactPicker } from "@/components/ContactPicker";
-import { Modal } from "@/components/Modal";
 import type { Tache } from "@/lib/airtable/taches";
 import type { Contact } from "@/lib/airtable/contacts";
 
@@ -20,7 +19,17 @@ export function TaskEditForm({
   isAdmin: boolean;
 }) {
   const [state, formAction, pending] = useActionState(updateTacheAction, initialState);
+  const [prestState, prestFormAction, prestPending] = useActionState(createPrestataireAction, initialState);
   const [showNewPrestataire, setShowNewPrestataire] = useState(false);
+
+  // Ferme le bloc "nouveau prestataire" dès que sa création réussit, sans
+  // passer par un effet (pattern "ajuster un état pendant le rendu"
+  // recommandé par React plutôt qu'un useEffect + setState).
+  const [lastPrestState, setLastPrestState] = useState(prestState);
+  if (prestState !== lastPrestState) {
+    setLastPrestState(prestState);
+    if (prestState.status === "success") setShowNewPrestataire(false);
+  }
 
   const toOption = (c: Contact) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom });
   const allContactOptions = contacts.map(toOption).sort((a, b) => a.label.localeCompare(b.label));
@@ -34,133 +43,127 @@ export function TaskEditForm({
   const prestataireActuel = allContactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
 
   return (
-    <div className="space-y-3">
-      <form action={formAction} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <input type="hidden" name="id" value={tache.id} />
+    // Un seul <form> pour tout : le bouton "Créer et assigner" du bloc
+    // prestataire cible une action différente via formAction, ce qui évite
+    // d'imbriquer un second <form> (interdit en HTML) tout en gardant le
+    // nouveau contact affiché au bon endroit — sous Échéance/Prestataire,
+    // avant Description.
+    <form action={formAction} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <input type="hidden" name="id" value={tache.id} />
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Statut</span>
-            <select name="statut" defaultValue={tache.statut} className="w-full rounded-md border border-slate-300 px-3 py-1.5">
-              {TACHE_STATUTS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-sm">
+          <span className="mb-1 block text-slate-600">Statut</span>
+          <select name="statut" defaultValue={tache.statut} className="w-full rounded-md border border-slate-300 px-3 py-1.5">
+            {TACHE_STATUTS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Priorité</span>
-            <select name="priorite" defaultValue={tache.priorite} className="w-full rounded-md border border-slate-300 px-3 py-1.5">
-              {TACHE_PRIORITES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-slate-600">Priorité</span>
+          <select name="priorite" defaultValue={tache.priorite} className="w-full rounded-md border border-slate-300 px-3 py-1.5">
+            {TACHE_PRIORITES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Échéance</span>
-            <input
-              type="date"
-              name="echeance"
-              defaultValue={tache.echeance ?? ""}
-              className="w-full rounded-md border border-slate-300 px-3 py-1.5"
-            />
-          </label>
-
-          <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Prestataire</span>
-            <ContactPicker name="prestataireContactId" contacts={prestataireOptions} defaultValue={prestataireActuel} />
-            {tache.prestataireContactIds.length === 0 && tache.prestataireAncienTexte && (
-              <p className="mt-1 text-xs text-slate-400">
-                Ancienne valeur non liée à un contact : {tache.prestataireAncienTexte}
-              </p>
-            )}
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => setShowNewPrestataire(true)}
-                className="mt-1 text-xs text-slate-500 underline hover:text-slate-900"
-              >
-                + Nouveau prestataire
-              </button>
-            ) : (
-              <p className="mt-1 text-xs text-slate-400">
-                Le prestataire recherché n&apos;existe pas ? Seul l&apos;administrateur peut en créer un.
-              </p>
-            )}
-          </label>
-        </div>
-
-        <label className="block text-sm">
-          <span className="mb-1 block text-slate-600">Description des objectifs</span>
-          <textarea
-            name="description"
-            defaultValue={tache.description}
-            rows={4}
+        <label className="text-sm">
+          <span className="mb-1 block text-slate-600">Échéance</span>
+          <input
+            type="date"
+            name="echeance"
+            defaultValue={tache.echeance ?? ""}
             className="w-full rounded-md border border-slate-300 px-3 py-1.5"
           />
         </label>
 
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white disabled:opacity-50">
-            {pending ? "Enregistrement…" : "Enregistrer"}
-          </button>
-          {state.status !== "idle" && (
-            <span className={`text-sm ${state.status === "error" ? "text-red-600" : "text-emerald-700"}`}>
-              {state.message}
-            </span>
+        <label className="text-sm">
+          <span className="mb-1 block text-slate-600">Prestataire</span>
+          <ContactPicker name="prestataireContactId" contacts={prestataireOptions} defaultValue={prestataireActuel} />
+          {tache.prestataireContactIds.length === 0 && tache.prestataireAncienTexte && (
+            <p className="mt-1 text-xs text-slate-400">
+              Ancienne valeur non liée à un contact : {tache.prestataireAncienTexte}
+            </p>
           )}
-        </div>
-      </form>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setShowNewPrestataire((v) => !v)}
+              // mt-3 (au lieu de mt-1) : évite qu'un clic visant ce lien touche
+              // par erreur le champ juste au-dessus, qui se remet alors en
+              // recherche (comportement voulu au clic sur le champ lui-même,
+              // pas quand on vise le lien en dessous).
+              className="mt-3 block text-xs text-slate-500 underline hover:text-slate-900"
+            >
+              {showNewPrestataire ? "Annuler" : "+ Nouveau prestataire"}
+            </button>
+          ) : (
+            <p className="mt-3 text-xs text-slate-400">
+              Le prestataire recherché n&apos;existe pas ? Seul l&apos;administrateur peut en créer un.
+            </p>
+          )}
+        </label>
+      </div>
 
       {isAdmin && showNewPrestataire && (
-        <Modal title="Nouveau contact prestataire" onClose={() => setShowNewPrestataire(false)}>
-          <NewPrestataireForm tacheId={tache.id} onCreated={() => setShowNewPrestataire(false)} />
-        </Modal>
+        <div className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+          <p className="text-sm font-medium text-slate-700">Nouveau contact prestataire</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input name="nom" placeholder="Nom" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <input name="organisation" placeholder="Organisation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <input name="fonction" placeholder="Fonction" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <input name="email" type="email" placeholder="E-mail" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <input name="telephone" placeholder="Téléphone" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-slate-500">Catégorie :</span>
+            {CONTACT_CATEGORIES.map((cat) => (
+              <label key={cat} className="flex items-center gap-1.5">
+                <input type="checkbox" name="categories" value={cat} defaultChecked={cat === "Prestataire"} />
+                {cat}
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="submit"
+              formAction={prestFormAction}
+              disabled={prestPending}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {prestPending ? "Création…" : "Créer et assigner"}
+            </button>
+            {prestState.status === "error" && <span className="text-sm text-red-600">{prestState.message}</span>}
+          </div>
+        </div>
       )}
-    </div>
-  );
-}
 
-function NewPrestataireForm({ tacheId, onCreated }: { tacheId: string; onCreated: () => void }) {
-  const [state, formAction, pending] = useActionState(createPrestataireAction, initialState);
+      <label className="block text-sm">
+        <span className="mb-1 block text-slate-600">Description des objectifs</span>
+        <textarea
+          name="description"
+          defaultValue={tache.description}
+          rows={4}
+          className="w-full rounded-md border border-slate-300 px-3 py-1.5"
+        />
+      </label>
 
-  // Ferme la popup dès que la création réussit, sans passer par un effet
-  // (pattern "ajuster un état pendant le rendu" recommandé par React).
-  const [lastHandled, setLastHandled] = useState(state);
-  if (state !== lastHandled) {
-    setLastHandled(state);
-    if (state.status === "success") onCreated();
-  }
-
-  return (
-    <form action={formAction} className="space-y-2">
-      <input type="hidden" name="id" value={tacheId} />
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input name="nom" required placeholder="Nom" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <input name="organisation" placeholder="Organisation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <input name="fonction" placeholder="Fonction" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <input name="email" type="email" placeholder="E-mail" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-        <input name="telephone" placeholder="Téléphone" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-      </div>
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="text-slate-500">Catégorie :</span>
-        {CONTACT_CATEGORIES.map((cat) => (
-          <label key={cat} className="flex items-center gap-1.5">
-            <input type="checkbox" name="categories" value={cat} defaultChecked={cat === "Prestataire"} />
-            {cat}
-          </label>
-        ))}
-      </div>
-      <div className="flex items-center gap-3 pt-1">
-        <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
-          {pending ? "Création…" : "Créer et assigner"}
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-4 py-1.5 text-sm text-white disabled:opacity-50">
+          {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
-        {state.status === "error" && <span className="text-sm text-red-600">{state.message}</span>}
+        {state.status !== "idle" && (
+          <span className={`text-sm ${state.status === "error" ? "text-red-600" : "text-emerald-700"}`}>
+            {state.message}
+          </span>
+        )}
       </div>
     </form>
   );

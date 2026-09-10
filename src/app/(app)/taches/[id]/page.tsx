@@ -77,13 +77,6 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           contacts={partiePrenanteOptions}
           editable={editable}
         />
-        {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
-          <p className="mt-1 text-sm text-slate-500">
-            {prestataires.length > 0
-              ? `Prestataire : ${prestataires.join(", ")}`
-              : `Prestataire (ancienne valeur) : ${tache.prestataireAncienTexte}`}
-          </p>
-        )}
       </div>
 
       {editable ? (
@@ -102,6 +95,12 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
             <span className="text-slate-500">Échéance : </span>
             {formatDate(tache.echeance)}
           </p>
+          {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
+            <p>
+              <span className="text-slate-500">Prestataire : </span>
+              {prestataires.length > 0 ? prestataires.join(", ") : `${tache.prestataireAncienTexte} (ancienne valeur)`}
+            </p>
+          )}
           <p className="whitespace-pre-wrap">{tache.description || "Aucune description."}</p>
         </div>
       )}
