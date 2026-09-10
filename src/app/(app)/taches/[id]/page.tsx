@@ -42,8 +42,12 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
     .filter((c) => c.categories.includes("Équipe projet"))
     .map(toOption)
     .sort((a, b) => a.label.localeCompare(b.label));
+  // Une partie prenante peut être un prestataire, un membre de l'équipe
+  // projet ou un tiers externe : on cherche parmi tout contact tagué, pas
+  // seulement ceux tagués "Partie prenante" (sinon la liste est trop courte
+  // pour être utile — vérifié avec Christel).
   const partiePrenanteOptions = dossier.contacts
-    .filter((c) => c.categories.includes("Partie prenante"))
+    .filter((c) => c.categories.length > 0)
     .map(toOption)
     .sort((a, b) => a.label.localeCompare(b.label));
 

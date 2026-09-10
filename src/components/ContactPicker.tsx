@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type ContactOption = { id: string; label: string };
 
@@ -10,7 +10,7 @@ type ContactOption = { id: string; label: string };
  * tape quelques lettres, une courte liste filtrée apparaît, on clique.
  *
  * Deux modes : sélection unique (par défaut — un champ caché `name` porte
- * l'ID choisi, affiché ensuite comme une puce avec un ✕ pour la retirer),
+ * l'ID choisi, affiché ensuite comme une puce cliquable pour la changer),
  * ou ajout répété via `onPick` (le champ reste une recherche vide après
  * chaque choix, pour construire une liste ailleurs — voir PartiesPrenantesField).
  */
@@ -32,6 +32,7 @@ export function ContactPicker({
   const [selected, setSelected] = useState<ContactOption | null>(defaultValue ?? null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const excluded = new Set(excludeIds);
   const matches =
@@ -51,27 +52,32 @@ export function ContactPicker({
     }
   }
 
+  function startChanging() {
+    setSelected(null);
+    setQuery("");
+    // La puce disparaît et cède la place au champ de recherche : on lui
+    // redonne le focus tout de suite pour pouvoir retaper sans re-cliquer.
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
   return (
     <div className="relative">
       {name && <input type="hidden" name={name} value={selected?.id ?? ""} />}
 
       {selected && !onPick ? (
-        <div className="flex items-center justify-between rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+        <button
+          type="button"
+          onClick={startChanging}
+          className="flex w-full items-center justify-between rounded-md border border-slate-300 px-3 py-1.5 text-left text-sm hover:border-slate-400"
+        >
           <span>{selected.label}</span>
-          <button
-            type="button"
-            onClick={() => {
-              setSelected(null);
-              setQuery("");
-            }}
-            className="ml-2 text-slate-400 hover:text-slate-700"
-            aria-label="Retirer"
-          >
+          <span className="ml-2 text-slate-400" aria-hidden>
             ✕
-          </button>
-        </div>
+          </span>
+        </button>
       ) : (
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => {
