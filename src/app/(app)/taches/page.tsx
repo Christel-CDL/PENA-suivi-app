@@ -6,6 +6,8 @@ import { SiteFilterTabs } from "@/components/SiteFilterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate, isOverdue } from "@/lib/format";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
+import { isAdmin } from "@/lib/auth/rbac";
+import { NewTacheForm } from "./NewTacheForm";
 import type { Tache } from "@/lib/airtable/taches";
 import type { Contact } from "@/lib/airtable/contacts";
 
@@ -74,12 +76,21 @@ export default async function TachesPage({
       : []),
   ];
 
+  const equipeProjetOptions = dossier.contacts
+    .filter((c) => c.categories.includes("Équipe projet"))
+    .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Tâches</h1>
         <SiteFilterTabs sites={dossier.sites} />
       </div>
+
+      {isAdmin(user) && (
+        <NewTacheForm sousProjets={dossier.sousProjets} equipeProjetOptions={equipeProjetOptions} />
+      )}
 
       <form className="flex flex-wrap gap-2" action="/taches">
         {site && <input type="hidden" name="site" value={site} />}

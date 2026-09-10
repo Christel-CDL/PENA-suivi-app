@@ -100,6 +100,8 @@ export async function createTache(input: {
   sousProjetIds: string[];
   responsableContactIds?: string[];
   description?: string;
+  priorite?: string;
+  echeance?: string | null;
 }) {
   const [record] = await createRecords<RawFields>(TABLES.TACHES, [
     {
@@ -108,6 +110,8 @@ export async function createTache(input: {
         [F.SOUS_PROJET_ASSOCIE]: input.sousProjetIds,
         [F.RESPONSABLE_LIEN]: input.responsableContactIds ?? [],
         [F.DESCRIPTION_OBJECTIFS]: input.description ?? "",
+        [F.PRIORITE]: input.priorite || "Normale",
+        [F.ECHEANCE]: input.echeance ?? undefined,
         [F.STATUT]: "À faire",
       },
     },
