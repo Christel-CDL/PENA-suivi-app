@@ -11,6 +11,8 @@ import type { Contact } from "@/lib/airtable/contacts";
 
 function TacheRow({ tache, contactsById }: { tache: Tache; contactsById: Map<string, Contact> }) {
   const responsables = tache.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
+  const prestataires = tache.prestataireContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
+  const prestataireLabel = prestataires.length > 0 ? prestataires.join(", ") : tache.prestataireAncienTexte;
   return (
     <Link href={`/taches/${tache.id}`} className="block p-4 hover:bg-slate-50">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -22,7 +24,7 @@ function TacheRow({ tache, contactsById }: { tache: Tache; contactsById: Map<str
       </div>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
         {responsables.length > 0 && <span>Responsable : {responsables.join(", ")}</span>}
-        {tache.prestataire && <span>Prestataire : {tache.prestataire}</span>}
+        {prestataireLabel && <span>Prestataire : {prestataireLabel}</span>}
         <span className={isOverdue(tache.echeance) && tache.statut !== "Terminé" ? "font-medium text-red-600" : ""}>
           Échéance : {formatDate(tache.echeance)}
         </span>

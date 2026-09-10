@@ -15,7 +15,9 @@ export type Tache = {
   priorite: string;
   responsableContactIds: string[];
   partiesPrenantesIds: string[];
-  prestataire: string;
+  prestataireContactIds: string[];
+  /** Ancienne valeur texte libre, conservée pour les tâches pas encore basculées vers un contact lié. */
+  prestataireAncienTexte: string;
 };
 
 type RawFields = {
@@ -30,7 +32,8 @@ type RawFields = {
   [F.PRIORITE]?: string;
   [F.RESPONSABLE_LIEN]?: string[];
   [F.PARTIES_PRENANTES]?: string[];
-  [F.PRESTATAIRE]?: string;
+  [F.PRESTATAIRE_ANCIEN_TEXTE]?: string;
+  [F.PRESTATAIRE_LIEN]?: string[];
 };
 
 function mapTache(r: { id: string; fields: RawFields }): Tache {
@@ -47,7 +50,8 @@ function mapTache(r: { id: string; fields: RawFields }): Tache {
     priorite: r.fields[F.PRIORITE] ?? "",
     responsableContactIds: r.fields[F.RESPONSABLE_LIEN] ?? [],
     partiesPrenantesIds: r.fields[F.PARTIES_PRENANTES] ?? [],
-    prestataire: r.fields[F.PRESTATAIRE] ?? "",
+    prestataireContactIds: r.fields[F.PRESTATAIRE_LIEN] ?? [],
+    prestataireAncienTexte: r.fields[F.PRESTATAIRE_ANCIEN_TEXTE] ?? "",
   };
 }
 
@@ -71,7 +75,7 @@ export type TacheEditableInput = Partial<{
   echeance: string | null;
   priorite: string;
   description: string;
-  prestataire: string;
+  prestataireContactIds: string[];
 }>;
 
 export async function updateTacheFields(id: string, input: TacheEditableInput) {
@@ -80,7 +84,7 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
   if (input.echeance !== undefined) fields[F.ECHEANCE] = input.echeance ?? undefined;
   if (input.priorite !== undefined) fields[F.PRIORITE] = input.priorite;
   if (input.description !== undefined) fields[F.DESCRIPTION_OBJECTIFS] = input.description;
-  if (input.prestataire !== undefined) fields[F.PRESTATAIRE] = input.prestataire;
+  if (input.prestataireContactIds !== undefined) fields[F.PRESTATAIRE_LIEN] = input.prestataireContactIds;
 
   const [record] = await updateRecords<RawFields>(TABLES.TACHES, [{ id, fields }]);
   return mapTache(record);

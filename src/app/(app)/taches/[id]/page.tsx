@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getTache } from "@/lib/airtable/taches";
 import { loadDossier } from "@/lib/data/dossier";
-import { canEditTask, canAccessSites, canEditJournalEntry } from "@/lib/auth/rbac";
+import { canEditTask, canAccessSites, canEditJournalEntry, isAdmin } from "@/lib/auth/rbac";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
 import { TaskEditForm } from "./TaskEditForm";
@@ -23,6 +23,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
   const editable = canEditTask(user, tache);
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
   const responsables = tache.responsableContactIds.map((cid) => contactsById.get(cid)?.nom).filter(Boolean);
+  const prestataires = tache.prestataireContactIds.map((cid) => contactsById.get(cid)?.nom).filter(Boolean);
   const historique = dossier.journal.filter((j) => j.tacheIds.includes(id));
 
   return (
@@ -35,7 +36,11 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
         </div>
         <p className="mt-1 text-sm text-slate-500">
           {responsables.length > 0 ? `Responsable : ${responsables.join(", ")}` : "Aucun responsable assigné"}
-          {tache.prestataire ? ` · Prestataire : ${tache.prestataire}` : ""}
+          {prestataires.length > 0
+            ? ` · Prestataire : ${prestataires.join(", ")}`
+            : tache.prestataireAncienTexte
+              ? ` · Prestataire (ancienne valeur) : ${tache.prestataireAncienTexte}`
+              : ""}
         </p>
       </div>
 
@@ -45,7 +50,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
         // les nouvelles valeurs au lieu de garder affichées celles du premier
         // rendu (sinon la modification semble "revenir" en arrière alors
         // qu'elle est bien enregistrée dans Airtable).
-        <TaskEditForm key={JSON.stringify(tache)} tache={tache} />
+        <TaskEditForm key={JSON.stringify(tache)} tache={tache} contacts={dossier.contacts} isAdmin={isAdmin(user)} />
       ) : (
         <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
           <p className="text-slate-500">

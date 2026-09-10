@@ -47,8 +47,9 @@ export const TACHES_FIELDS = {
   PRIORITE: "fldyMQmTNkvmf9Lc8",
   RESPONSABLE_ANCIEN_TEXTE: "fldyXyV6RNiQSVRrg",
   PARTIES_PRENANTES: "fldFwgUhvNl7OGCYm",
-  PRESTATAIRE: "fldKs6Bq29OX09Kbl",
+  PRESTATAIRE_ANCIEN_TEXTE: "fldKs6Bq29OX09Kbl",
   RESPONSABLE_LIEN: "fldAhpJcotmZCboiD",
+  PRESTATAIRE_LIEN: "fldTxUuDSdlDvQtdH",
 } as const;
 
 export const JOURNAL_FIELDS = {
