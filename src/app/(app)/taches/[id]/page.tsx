@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format";
 import { TaskEditForm } from "./TaskEditForm";
 import { CommentForm } from "./CommentForm";
 import { ResponsableField } from "./ResponsableField";
+import { PartiesPrenantesField } from "./PartiesPrenantesField";
 import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +34,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
     .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
     .sort((a, b) => a.label.localeCompare(b.label));
   const responsableActuel = contactOptions.find((c) => c.id === tache.responsableContactIds[0]);
+  const partiesPrenantesActuelles = contactOptions.filter((c) => tache.partiesPrenantesIds.includes(c.id));
 
   return (
     <div className="space-y-6">
@@ -49,6 +51,13 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           responsableActuel={responsableActuel}
           contacts={contactOptions}
           isAdmin={admin}
+        />
+        <PartiesPrenantesField
+          key={`pp-${JSON.stringify(tache.partiesPrenantesIds)}`}
+          tacheId={tache.id}
+          initial={partiesPrenantesActuelles}
+          contacts={contactOptions}
+          editable={editable}
         />
         {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
           <p className="mt-1 text-sm text-slate-500">

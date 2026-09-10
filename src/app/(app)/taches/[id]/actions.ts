@@ -118,3 +118,26 @@ export async function updateResponsableAction(_prev: FormState, formData: FormDa
   revalidatePath("/");
   return { status: "success", message: "Responsable mis à jour." };
 }
+
+/**
+ * Ajoute ou retire une partie prenante — mêmes droits que le reste de la
+ * fiche (Admin, ou le responsable actuel de la tâche).
+ */
+export async function updatePartiesPrenantesAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  if (!user) return { status: "error", message: "Session expirée, reconnectez-vous." };
+
+  const id = String(formData.get("id"));
+  const tache = await getTache(id);
+  if (!tache) return { status: "error", message: "Tâche introuvable." };
+
+  if (!canEditTask(user, tache)) {
+    return { status: "error", message: "Vous n'êtes pas responsable de cette tâche." };
+  }
+
+  const partiesPrenantesIds = formData.getAll("partiesPrenantesIds").map(String);
+  await updateTacheFields(id, { partiesPrenantesIds });
+
+  revalidatePath(`/taches/${id}`);
+  return { status: "success", message: "Parties prenantes mises à jour." };
+}

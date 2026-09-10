@@ -77,6 +77,7 @@ export type TacheEditableInput = Partial<{
   description: string;
   prestataireContactIds: string[];
   responsableContactIds: string[];
+  partiesPrenantesIds: string[];
 }>;
 
 export async function updateTacheFields(id: string, input: TacheEditableInput) {
@@ -87,6 +88,7 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
   if (input.description !== undefined) fields[F.DESCRIPTION_OBJECTIFS] = input.description;
   if (input.prestataireContactIds !== undefined) fields[F.PRESTATAIRE_LIEN] = input.prestataireContactIds;
   if (input.responsableContactIds !== undefined) fields[F.RESPONSABLE_LIEN] = input.responsableContactIds;
+  if (input.partiesPrenantesIds !== undefined) fields[F.PARTIES_PRENANTES] = input.partiesPrenantesIds;
 
   const [record] = await updateRecords<RawFields>(TABLES.TACHES, [{ id, fields }]);
   return mapTache(record);
