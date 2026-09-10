@@ -69,6 +69,10 @@ export function ContactPicker({
             <li key={c.id}>
               <button
                 type="button"
+                // Sans ça, le clic déclenche d'abord le blur du champ texte
+                // (qui referme la liste) avant que le clic lui-même ne soit
+                // traité : il fallait cliquer deux fois pour que ça "prenne".
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setSelected(c);
                   setOpen(false);
