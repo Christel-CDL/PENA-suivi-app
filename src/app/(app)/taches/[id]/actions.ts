@@ -91,3 +91,30 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
   revalidatePath("/contacts");
   return { status: "success", message: `Contact « ${nom} » créé et assigné comme prestataire.` };
 }
+
+/**
+ * Assigne (ou change) le responsable d'une tâche — réservé à l'Admin. Un
+ * Contributeur ne peut pas s'auto-assigner une tâche non suivie : ça
+ * reviendrait à modifier une tâche dont il n'est pas encore responsable,
+ * ce que la section 5 du cahier des charges interdit.
+ */
+export async function updateResponsableAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  try {
+    assertAdmin(user);
+  } catch (err) {
+    return { status: "error", message: (err as Error).message };
+  }
+
+  const id = String(formData.get("id"));
+  const responsableContactId = String(formData.get("responsableContactId") ?? "");
+
+  await updateTacheFields(id, {
+    responsableContactIds: responsableContactId ? [responsableContactId] : [],
+  });
+
+  revalidatePath(`/taches/${id}`);
+  revalidatePath("/taches");
+  revalidatePath("/");
+  return { status: "success", message: "Responsable mis à jour." };
+}

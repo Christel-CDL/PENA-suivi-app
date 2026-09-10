@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
 import { TaskEditForm } from "./TaskEditForm";
 import { CommentForm } from "./CommentForm";
+import { ResponsableField } from "./ResponsableField";
 import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,10 +22,17 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
   if (!canAccessSites(user, taskSiteIds)) notFound(); // ne pas révéler l'existence d'une tâche hors périmètre
 
   const editable = canEditTask(user, tache);
+  const admin = isAdmin(user);
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
-  const responsables = tache.responsableContactIds.map((cid) => contactsById.get(cid)?.nom).filter(Boolean);
-  const prestataires = tache.prestataireContactIds.map((cid) => contactsById.get(cid)?.nom).filter(Boolean);
+  const isNom = (n: string | undefined): n is string => Boolean(n);
+  const responsables = tache.responsableContactIds.map((cid) => contactsById.get(cid)?.nom).filter(isNom);
+  const prestataires = tache.prestataireContactIds.map((cid) => contactsById.get(cid)?.nom).filter(isNom);
   const historique = dossier.journal.filter((j) => j.tacheIds.includes(id));
+
+  const contactOptions = dossier.contacts
+    .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const responsableActuel = contactOptions.find((c) => c.id === tache.responsableContactIds[0]);
 
   return (
     <div className="space-y-6">
@@ -34,14 +42,21 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           <StatusBadge value={tache.statut} />
           <StatusBadge value={tache.priorite} />
         </div>
-        <p className="mt-1 text-sm text-slate-500">
-          {responsables.length > 0 ? `Responsable : ${responsables.join(", ")}` : "Aucun responsable assigné"}
-          {prestataires.length > 0
-            ? ` · Prestataire : ${prestataires.join(", ")}`
-            : tache.prestataireAncienTexte
-              ? ` · Prestataire (ancienne valeur) : ${tache.prestataireAncienTexte}`
-              : ""}
-        </p>
+        <ResponsableField
+          key={`resp-${JSON.stringify(tache.responsableContactIds)}`}
+          tacheId={tache.id}
+          responsables={responsables}
+          responsableActuel={responsableActuel}
+          contacts={contactOptions}
+          isAdmin={admin}
+        />
+        {(prestataires.length > 0 || tache.prestataireAncienTexte) && (
+          <p className="mt-1 text-sm text-slate-500">
+            {prestataires.length > 0
+              ? `Prestataire : ${prestataires.join(", ")}`
+              : `Prestataire (ancienne valeur) : ${tache.prestataireAncienTexte}`}
+          </p>
+        )}
       </div>
 
       {editable ? (

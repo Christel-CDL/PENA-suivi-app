@@ -66,9 +66,9 @@ export async function getTache(id: string): Promise<Tache | null> {
 }
 
 /**
- * Modification d'une tâche — l'appelant DOIT avoir vérifié canEditTask() avant
- * d'appeler cette fonction. On ne fait pas confiance à la liste des champs
- * fournie : seuls les champs éditables par un Contributeur sont acceptés ici.
+ * Modification d'une tâche — l'appelant DOIT avoir vérifié les droits
+ * (canEditTask pour un Contributeur, assertAdmin pour le champ Responsable)
+ * avant d'appeler cette fonction. Elle-même ne fait aucun contrôle d'accès.
  */
 export type TacheEditableInput = Partial<{
   statut: string;
@@ -76,6 +76,7 @@ export type TacheEditableInput = Partial<{
   priorite: string;
   description: string;
   prestataireContactIds: string[];
+  responsableContactIds: string[];
 }>;
 
 export async function updateTacheFields(id: string, input: TacheEditableInput) {
@@ -85,6 +86,7 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
   if (input.priorite !== undefined) fields[F.PRIORITE] = input.priorite;
   if (input.description !== undefined) fields[F.DESCRIPTION_OBJECTIFS] = input.description;
   if (input.prestataireContactIds !== undefined) fields[F.PRESTATAIRE_LIEN] = input.prestataireContactIds;
+  if (input.responsableContactIds !== undefined) fields[F.RESPONSABLE_LIEN] = input.responsableContactIds;
 
   const [record] = await updateRecords<RawFields>(TABLES.TACHES, [{ id, fields }]);
   return mapTache(record);
