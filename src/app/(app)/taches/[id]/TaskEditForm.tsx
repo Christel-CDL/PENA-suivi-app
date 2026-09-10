@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { updateTacheAction, createPrestataireAction, type FormState } from "./actions";
-import { TACHE_STATUTS, TACHE_PRIORITES } from "@/lib/airtable/constants";
+import { TACHE_STATUTS, TACHE_PRIORITES, CONTACT_CATEGORIES } from "@/lib/airtable/constants";
 import { ContactPicker } from "@/components/ContactPicker";
+import { Modal } from "@/components/Modal";
 import type { Tache } from "@/lib/airtable/taches";
 import type { Contact } from "@/lib/airtable/contacts";
 
@@ -81,10 +82,10 @@ export function TaskEditForm({
             {isAdmin ? (
               <button
                 type="button"
-                onClick={() => setShowNewPrestataire((v) => !v)}
+                onClick={() => setShowNewPrestataire(true)}
                 className="mt-1 text-xs text-slate-500 underline hover:text-slate-900"
               >
-                {showNewPrestataire ? "Annuler" : "+ Nouveau prestataire"}
+                + Nouveau prestataire
               </button>
             ) : (
               <p className="mt-1 text-xs text-slate-400">
@@ -116,27 +117,50 @@ export function TaskEditForm({
         </div>
       </form>
 
-      {isAdmin && showNewPrestataire && <NewPrestataireForm tacheId={tache.id} />}
+      {isAdmin && showNewPrestataire && (
+        <Modal title="Nouveau contact prestataire" onClose={() => setShowNewPrestataire(false)}>
+          <NewPrestataireForm tacheId={tache.id} onCreated={() => setShowNewPrestataire(false)} />
+        </Modal>
+      )}
     </div>
   );
 }
 
-function NewPrestataireForm({ tacheId }: { tacheId: string }) {
+function NewPrestataireForm({ tacheId, onCreated }: { tacheId: string; onCreated: () => void }) {
   const [state, formAction, pending] = useActionState(createPrestataireAction, initialState);
 
+  // Ferme la popup dès que la création réussit, sans passer par un effet
+  // (pattern "ajuster un état pendant le rendu" recommandé par React).
+  const [lastHandled, setLastHandled] = useState(state);
+  if (state !== lastHandled) {
+    setLastHandled(state);
+    if (state.status === "success") onCreated();
+  }
+
   return (
-    <form action={formAction} className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+    <form action={formAction} className="space-y-2">
       <input type="hidden" name="id" value={tacheId} />
-      <p className="text-sm text-slate-600">Nouveau contact prestataire</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <input name="nom" required placeholder="Nom" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
         <input name="organisation" placeholder="Organisation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        <input name="fonction" placeholder="Fonction" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        <input name="email" type="email" placeholder="E-mail" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        <input name="telephone" placeholder="Téléphone" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
       </div>
-      <div className="flex items-center gap-3">
-        <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <span className="text-slate-500">Catégorie :</span>
+        {CONTACT_CATEGORIES.map((cat) => (
+          <label key={cat} className="flex items-center gap-1.5">
+            <input type="checkbox" name="categories" value={cat} defaultChecked={cat === "Prestataire"} />
+            {cat}
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <button type="submit" disabled={pending} className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
           {pending ? "Création…" : "Créer et assigner"}
         </button>
-        {state.status === "error" && <span className="text-xs text-red-600">{state.message}</span>}
+        {state.status === "error" && <span className="text-sm text-red-600">{state.message}</span>}
       </div>
     </form>
   );

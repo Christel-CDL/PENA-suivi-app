@@ -80,10 +80,16 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
 
   const id = String(formData.get("id"));
   const nom = String(formData.get("nom") ?? "").trim();
-  const organisation = String(formData.get("organisation") ?? "").trim();
   if (!nom) return { status: "error", message: "Le nom du prestataire est obligatoire." };
 
-  const contact = await createContact({ nom, organisation, categories: ["Prestataire"] });
+  const contact = await createContact({
+    nom,
+    organisation: String(formData.get("organisation") ?? "").trim(),
+    fonction: String(formData.get("fonction") ?? "").trim(),
+    email: String(formData.get("email") ?? "").trim(),
+    telephone: String(formData.get("telephone") ?? "").trim(),
+    categories: formData.getAll("categories").map(String),
+  });
   await updateTacheFields(id, { prestataireContactIds: [contact.id] });
 
   revalidatePath(`/taches/${id}`);
