@@ -61,6 +61,11 @@ export async function listRecords<TFields extends Record<string, AirtableFieldVa
 
   do {
     const search = new URLSearchParams();
+    // Par défaut, l'API Airtable indexe fields{} par NOM de champ, pas par ID —
+    // alors que tout ce module (et le reste de l'app) adresse les champs par ID
+    // pour rester stable si Christel renomme un champ dans Airtable. Sans ce
+    // paramètre, chaque lecture renvoie des champs "undefined".
+    search.set("returnFieldsByFieldId", "true");
     if (params.filterByFormula) search.set("filterByFormula", params.filterByFormula);
     if (params.maxRecords) search.set("maxRecords", String(params.maxRecords));
     if (params.fields) for (const f of params.fields) search.append("fields[]", f);
@@ -89,7 +94,7 @@ export async function getRecord<TFields extends Record<string, AirtableFieldValu
   recordId: string,
 ): Promise<AirtableRecord<TFields> | null> {
   try {
-    const data = await airtableFetch(`${BASE_ID}/${tableId}/${recordId}`, {
+    const data = await airtableFetch(`${BASE_ID}/${tableId}/${recordId}?returnFieldsByFieldId=true`, {
       method: "GET",
       next: { revalidate: CACHE_SECONDS, tags: [airtableTag(tableId)] },
     });
@@ -105,7 +110,7 @@ export async function createRecords<TFields extends Record<string, AirtableField
   tableId: string,
   records: { fields: Partial<TFields> }[],
 ): Promise<AirtableRecord<TFields>[]> {
-  const data = await airtableFetch(`${BASE_ID}/${tableId}`, {
+  const data = await airtableFetch(`${BASE_ID}/${tableId}?returnFieldsByFieldId=true`, {
     method: "POST",
     body: JSON.stringify({ records, typecast: true }),
     cache: "no-store",
@@ -120,7 +125,7 @@ export async function updateRecords<TFields extends Record<string, AirtableField
   tableId: string,
   records: { id: string; fields: Partial<TFields> }[],
 ): Promise<AirtableRecord<TFields>[]> {
-  const data = await airtableFetch(`${BASE_ID}/${tableId}`, {
+  const data = await airtableFetch(`${BASE_ID}/${tableId}?returnFieldsByFieldId=true`, {
     method: "PATCH",
     body: JSON.stringify({ records, typecast: true }),
     cache: "no-store",
