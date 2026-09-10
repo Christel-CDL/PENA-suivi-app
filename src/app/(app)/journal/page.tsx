@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { loadDossier } from "@/lib/data/dossier";
 import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
-import { formatDateTime } from "@/lib/format";
+import { canEditJournalEntry } from "@/lib/auth/rbac";
 import { JournalForm } from "./JournalForm";
+import { JournalEntryRow } from "./JournalEntryRow";
 
 export default async function JournalPage({
   searchParams,
@@ -27,23 +27,14 @@ export default async function JournalPage({
 
       <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
         {dossier.journal.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune entrée.</p>}
-        {dossier.journal.map((j) => {
-          const tache = j.tacheIds.map((id) => tachesById.get(id)).find(Boolean);
-          return (
-            <div key={j.id} className="p-4 text-sm">
-              <p className="whitespace-pre-wrap text-slate-800">{j.description}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-                <span>{formatDateTime(j.date)}</span>
-                <span>{j.origine}</span>
-                {tache && (
-                  <Link href={`/taches/${tache.id}`} className="text-slate-500 underline hover:text-slate-900">
-                    {tache.nom}
-                  </Link>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {dossier.journal.map((j) => (
+          <JournalEntryRow
+            key={j.id}
+            entry={j}
+            tache={j.tacheIds.map((id) => tachesById.get(id)).find(Boolean)}
+            canEdit={canEditJournalEntry(user, j)}
+          />
+        ))}
       </div>
     </div>
   );

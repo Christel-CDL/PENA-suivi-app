@@ -43,6 +43,17 @@ export function canAddJournalEntry(user: Utilisateur, taskSiteIds: string[]): bo
   return canAccessSites(user, taskSiteIds);
 }
 
+/**
+ * Modifier ou supprimer une entrée de journal : l'Admin peut toujours (ex.
+ * corriger un rattachement erroné) ; un Contributeur seulement sur les
+ * entrées dont il est l'auteur (son contact est dans "Contact associé").
+ */
+export function canEditJournalEntry(user: Utilisateur, entry: { contactIds: string[] }): boolean {
+  if (isAdmin(user)) return true;
+  if (!user.contactId) return false;
+  return entry.contactIds.includes(user.contactId);
+}
+
 /** Seul l'Admin crée directement un sous-projet/une tâche ; un Contributeur passe par DEMANDES. */
 export function canCreateDirectly(user: Utilisateur): boolean {
   return isAdmin(user);

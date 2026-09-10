@@ -134,3 +134,15 @@ export async function updateRecords<TFields extends Record<string, AirtableField
   updateTag(airtableTag(tableId));
   return data.records as AirtableRecord<TFields>[];
 }
+
+/** Supprime un ou plusieurs enregistrements (max 10 par appel, limite Airtable). */
+export async function deleteRecords(tableId: string, recordIds: string[]): Promise<void> {
+  const search = new URLSearchParams();
+  for (const id of recordIds) search.append("records[]", id);
+  await airtableFetch(`${BASE_ID}/${tableId}?${search.toString()}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+  const { updateTag } = await import("next/cache");
+  updateTag(airtableTag(tableId));
+}

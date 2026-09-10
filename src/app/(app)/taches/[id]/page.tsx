@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getTache } from "@/lib/airtable/taches";
 import { loadDossier } from "@/lib/data/dossier";
-import { canEditTask, canAccessSites } from "@/lib/auth/rbac";
+import { canEditTask, canAccessSites, canEditJournalEntry } from "@/lib/auth/rbac";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { TaskEditForm } from "./TaskEditForm";
 import { CommentForm } from "./CommentForm";
+import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = (await getCurrentUser())!;
@@ -60,12 +61,7 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
         <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
           {historique.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune entrée liée à cette tâche.</p>}
           {historique.map((j) => (
-            <div key={j.id} className="p-3 text-sm">
-              <p className="whitespace-pre-wrap text-slate-800">{j.description}</p>
-              <p className="mt-1 text-xs text-slate-400">
-                {formatDateTime(j.date)} · {j.origine}
-              </p>
-            </div>
+            <JournalEntryRow key={j.id} entry={j} canEdit={canEditJournalEntry(user, j)} />
           ))}
         </div>
       </section>

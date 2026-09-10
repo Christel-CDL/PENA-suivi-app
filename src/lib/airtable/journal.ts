@@ -1,5 +1,5 @@
 import "server-only";
-import { listRecords, createRecords } from "./client";
+import { listRecords, createRecords, updateRecords, deleteRecords } from "./client";
 import { TABLES, JOURNAL_FIELDS as F } from "./constants";
 
 export type JournalEntry = {
@@ -65,6 +65,18 @@ export async function createJournalEntry(input: {
     },
   ]);
   return mapEntry(record);
+}
+
+/** Modifie le texte d'une entrée existante (correction d'une erreur de saisie ou de rattachement). */
+export async function updateJournalEntry(id: string, description: string) {
+  const [record] = await updateRecords<RawFields>(TABLES.JOURNAL, [
+    { id, fields: { [F.DESCRIPTION]: description } },
+  ]);
+  return mapEntry(record);
+}
+
+export async function deleteJournalEntry(id: string) {
+  await deleteRecords(TABLES.JOURNAL, [id]);
 }
 
 /**
