@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateTacheAction, createPrestataireAction, type FormState } from "./actions";
 import { TACHE_STATUTS, TACHE_PRIORITES } from "@/lib/airtable/constants";
+import { ContactPicker } from "@/components/ContactPicker";
 import type { Tache } from "@/lib/airtable/taches";
 import type { Contact } from "@/lib/airtable/contacts";
 
@@ -19,7 +20,11 @@ export function TaskEditForm({
 }) {
   const [state, formAction, pending] = useActionState(updateTacheAction, initialState);
   const [showNewPrestataire, setShowNewPrestataire] = useState(false);
-  const contactsTries = [...contacts].sort((a, b) => a.nom.localeCompare(b.nom));
+
+  const contactOptions = contacts
+    .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const prestataireActuel = contactOptions.find((c) => c.id === tache.prestataireContactIds[0]);
 
   return (
     <div className="space-y-3">
@@ -61,19 +66,7 @@ export function TaskEditForm({
 
           <label className="text-sm">
             <span className="mb-1 block text-slate-600">Prestataire</span>
-            <select
-              name="prestataireContactId"
-              defaultValue={tache.prestataireContactIds[0] ?? ""}
-              className="w-full rounded-md border border-slate-300 px-3 py-1.5"
-            >
-              <option value="">Aucun</option>
-              {contactsTries.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nom}
-                  {c.organisation ? ` (${c.organisation})` : ""}
-                </option>
-              ))}
-            </select>
+            <ContactPicker name="prestataireContactId" contacts={contactOptions} defaultValue={prestataireActuel} />
             {tache.prestataireContactIds.length === 0 && tache.prestataireAncienTexte && (
               <p className="mt-1 text-xs text-slate-400">
                 Ancienne valeur non liée à un contact : {tache.prestataireAncienTexte}
