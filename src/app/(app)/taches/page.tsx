@@ -6,6 +6,30 @@ import { SiteFilterTabs } from "@/components/SiteFilterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate, isOverdue } from "@/lib/format";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
+import type { Tache } from "@/lib/airtable/taches";
+import type { Contact } from "@/lib/airtable/contacts";
+
+function TacheRow({ tache, contactsById }: { tache: Tache; contactsById: Map<string, Contact> }) {
+  const responsables = tache.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
+  return (
+    <Link href={`/taches/${tache.id}`} className="block p-4 hover:bg-slate-50">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-slate-900">{tache.nom}</p>
+        <div className="flex items-center gap-2">
+          <StatusBadge value={tache.priorite} />
+          <StatusBadge value={tache.statut} />
+        </div>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+        {responsables.length > 0 && <span>Responsable : {responsables.join(", ")}</span>}
+        {tache.prestataire && <span>Prestataire : {tache.prestataire}</span>}
+        <span className={isOverdue(tache.echeance) && tache.statut !== "Terminé" ? "font-medium text-red-600" : ""}>
+          Échéance : {formatDate(tache.echeance)}
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 export default async function TachesPage({
   searchParams,
@@ -30,6 +54,23 @@ export default async function TachesPage({
     if (query && !t.nom.toLowerCase().includes(query)) return false;
     return true;
   });
+
+  // Regroupement par sous-projet, dans l'ordre où les sous-projets apparaissent
+  // dans le dossier ; les tâches sans sous-projet associé arrivent en dernier.
+  const tachesBySousProjet = new Map<string, Tache[]>();
+  for (const t of taches) {
+    const key = t.sousProjetIds[0] ?? "_sans";
+    if (!tachesBySousProjet.has(key)) tachesBySousProjet.set(key, []);
+    tachesBySousProjet.get(key)!.push(t);
+  }
+  const groupes = [
+    ...dossier.sousProjets
+      .filter((sp) => tachesBySousProjet.has(sp.id))
+      .map((sp) => ({ id: sp.id, nom: sp.nom, taches: tachesBySousProjet.get(sp.id)! })),
+    ...(tachesBySousProjet.has("_sans")
+      ? [{ id: "_sans", nom: "Sans sous-projet", taches: tachesBySousProjet.get("_sans")! }]
+      : []),
+  ];
 
   return (
     <div className="space-y-4">
@@ -71,30 +112,24 @@ export default async function TachesPage({
         </div>
       )}
 
-      <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-        {taches.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune tâche ne correspond.</p>}
-        {taches.map((t) => {
-          const responsables = t.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
-          return (
-            <Link key={t.id} href={`/taches/${t.id}`} className="block p-4 hover:bg-slate-50">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-900">{t.nom}</p>
-                <div className="flex items-center gap-2">
-                  <StatusBadge value={t.priorite} />
-                  <StatusBadge value={t.statut} />
-                </div>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-                {responsables.length > 0 && <span>Responsable : {responsables.join(", ")}</span>}
-                {t.prestataire && <span>Prestataire : {t.prestataire}</span>}
-                <span className={isOverdue(t.echeance) && t.statut !== "Terminé" ? "font-medium text-red-600" : ""}>
-                  Échéance : {formatDate(t.echeance)}
-                </span>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      {taches.length === 0 && (
+        <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          Aucune tâche ne correspond.
+        </p>
+      )}
+
+      {groupes.map((groupe) => (
+        <section key={groupe.id}>
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">
+            {groupe.nom} <span className="font-normal text-slate-400">({groupe.taches.length})</span>
+          </h2>
+          <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+            {groupe.taches.map((t) => (
+              <TacheRow key={t.id} tache={t} contactsById={contactsById} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
