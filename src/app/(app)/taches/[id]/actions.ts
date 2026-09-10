@@ -92,11 +92,13 @@ export async function updatePrestataireAction(_prev: FormState, formData: FormDa
 }
 
 /**
- * Crée un nouveau contact et l'ajoute immédiatement aux prestataires de la
- * tâche (sans retirer ceux déjà assignés) — réservé à l'Admin, comme toute
- * création de contact (section 5).
+ * Crée un nouveau contact depuis la fiche tâche — commun aux trois champs
+ * Responsable / Parties prenantes / Prestataires plutôt que dédié à un
+ * seul : le contact créé devient simplement cherchable dans les trois
+ * (selon la catégorie cochée), à assigner ensuite via leur propre "+
+ * Ajouter". Réservé à l'Admin, comme toute création de contact (section 5).
  */
-export async function createPrestataireAction(_prev: FormState, formData: FormData): Promise<FormState> {
+export async function createContactFromTacheAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await getCurrentUser();
   try {
     assertAdmin(user);
@@ -105,13 +107,10 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
   }
 
   const id = String(formData.get("id"));
-  const tache = await getTache(id);
-  if (!tache) return { status: "error", message: "Tâche introuvable." };
-
   const nom = String(formData.get("nom") ?? "").trim();
-  if (!nom) return { status: "error", message: "Le nom du prestataire est obligatoire." };
+  if (!nom) return { status: "error", message: "Le nom est obligatoire." };
 
-  const contact = await createContact({
+  await createContact({
     nom,
     organisation: String(formData.get("organisation") ?? "").trim(),
     fonction: String(formData.get("fonction") ?? "").trim(),
@@ -119,12 +118,11 @@ export async function createPrestataireAction(_prev: FormState, formData: FormDa
     telephone: String(formData.get("telephone") ?? "").trim(),
     categories: formData.getAll("categories").map(String),
   });
-  await updateTacheFields(id, { prestataireContactIds: [...tache.prestataireContactIds, contact.id] });
 
   revalidatePath(`/taches/${id}`);
   revalidatePath("/taches");
   revalidatePath("/contacts");
-  return { status: "success", message: `Contact « ${nom} » créé et ajouté aux prestataires.` };
+  return { status: "success", message: `Contact « ${nom} » créé.` };
 }
 
 /**

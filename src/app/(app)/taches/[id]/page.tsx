@@ -10,6 +10,7 @@ import { CommentForm } from "./CommentForm";
 import { ResponsableField } from "./ResponsableField";
 import { PartiesPrenantesField } from "./PartiesPrenantesField";
 import { PrestataireField } from "./PrestataireField";
+import { NewContactField } from "./NewContactField";
 import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -89,8 +90,8 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           prestataireAncienTexte={tache.prestataireAncienTexte}
           contacts={prestataireOptions}
           editable={editable}
-          isAdmin={admin}
         />
+        {admin && <NewContactField tacheId={tache.id} />}
       </div>
 
       {editable ? (
