@@ -84,7 +84,13 @@ export function TaskEditForm({
           />
         </label>
 
-        <label className="text-sm">
+        {/*
+          Un <div>, pas un <label> : un <label> qui contient plusieurs
+          éléments cliquables (le champ ET le lien "+ Nouveau prestataire")
+          propage le clic sur le premier contrôle rencontré — c'est ce qui
+          effaçait le champ même en cliquant sur le lien en dessous.
+        */}
+        <div className="text-sm">
           <span className="mb-1 block text-slate-600">Prestataire</span>
           <ContactPicker name="prestataireContactId" contacts={prestataireOptions} defaultValue={prestataireActuel} />
           {tache.prestataireContactIds.length === 0 && tache.prestataireAncienTexte && (
@@ -96,20 +102,16 @@ export function TaskEditForm({
             <button
               type="button"
               onClick={() => setShowNewPrestataire((v) => !v)}
-              // mt-3 (au lieu de mt-1) : évite qu'un clic visant ce lien touche
-              // par erreur le champ juste au-dessus, qui se remet alors en
-              // recherche (comportement voulu au clic sur le champ lui-même,
-              // pas quand on vise le lien en dessous).
-              className="mt-3 block text-xs text-slate-500 underline hover:text-slate-900"
+              className="mt-1 text-xs text-slate-500 underline hover:text-slate-900"
             >
               {showNewPrestataire ? "Annuler" : "+ Nouveau prestataire"}
             </button>
           ) : (
-            <p className="mt-3 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400">
               Le prestataire recherché n&apos;existe pas ? Seul l&apos;administrateur peut en créer un.
             </p>
           )}
-        </label>
+        </div>
       </div>
 
       {isAdmin && showNewPrestataire && (
