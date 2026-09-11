@@ -1,0 +1,130 @@
+{
+  "name": "PENA - Sync planning calendrier",
+  "nodes": [
+    {
+      "id": "trigger1",
+      "name": "Toutes les 2 heures",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 2 }]
+        }
+      }
+    },
+    {
+      "id": "http_get_calendar",
+      "name": "Lit le calendrier",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me/calendarView",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Prefer", "value": "outlook.timezone=\"Europe/Paris\"" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "startDateTime", "value": "={{ $now.toISO() }}" },
+            { "name": "endDateTime", "value": "={{ $now.plus({ months: 2 }).toISO() }}" },
+            { "name": "$select", "value": "subject,start,end,isAllDay" },
+            { "name": "$top", "value": "100" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "oAuth2Api": {
+          "id": "efq8lJNnVLjQJtil",
+          "name": "Outlook+calendar/N8N"
+        }
+      }
+    },
+    {
+      "id": "http_list_existing",
+      "name": "Liste les jours existants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tble9ApzEooaJNyw3",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "returnFieldsByFieldId", "value": "true" },
+            { "name": "fields[]", "value": "fldEudIIzKQYXdh1b" },
+            { "name": "fields[]", "value": "fldkSCBcG0xkGoIkD" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "id": "code_diff",
+      "name": "Calcule les nouveaux jours",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0],
+      "parameters": {
+        "jsCode": "const METAUX_ID = 'recagFquBCz04FJfi';\nconst ENV_ID = 'recA9nSrxiyq1Ta9x';\n\nconst calendarEvents = $('Lit le calendrier').first().json.value || [];\nconst existingRecords = $json.records || [];\n\nconst existingKeys = new Set();\nfor (const r of existingRecords) {\n  const d = r.fields && r.fields['fldEudIIzKQYXdh1b'];\n  const sites = (r.fields && r.fields['fldkSCBcG0xkGoIkD']) || [];\n  for (const s of sites) existingKeys.add(d + '|' + s);\n}\n\nconst newRecords = [];\nconst seen = new Set();\n\nfor (const ev of calendarEvents) {\n  const subject = ev.subject || '';\n  const upper = subject.toUpperCase();\n  let siteId = null;\n  if (/\\bPE\\b/.test(upper)) siteId = ENV_ID;\n  else if (/\\bPM\\b/.test(upper) || /\\bPL\\b/.test(upper) || /\\bPENA\\b/.test(upper)) siteId = METAUX_ID;\n  if (!siteId) continue;\n\n  const date = ((ev.start && ev.start.dateTime) || '').slice(0, 10);\n  if (!date) continue;\n\n  const key = date + '|' + siteId;\n  if (seen.has(key) || existingKeys.has(key)) continue;\n  seen.add(key);\n\n  newRecords.push({\n    fields: {\n      fldYJwPLx9iyTfjLR: subject,\n      fldEudIIzKQYXdh1b: date,\n      fldkSCBcG0xkGoIkD: [siteId],\n    },\n  });\n}\n\nif (newRecords.length === 0) return [];\nreturn [{ json: { records: newRecords } }];"
+      }
+    },
+    {
+      "id": "http_write_new",
+      "name": "Ecrit les nouveaux jours",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tble9ApzEooaJNyw3?returnFieldsByFieldId=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { records: $json.records } }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Toutes les 2 heures": {
+      "main": [[{ "node": "Lit le calendrier", "type": "main", "index": 0 }]]
+    },
+    "Lit le calendrier": {
+      "main": [[{ "node": "Liste les jours existants", "type": "main", "index": 0 }]]
+    },
+    "Liste les jours existants": {
+      "main": [[{ "node": "Calcule les nouveaux jours", "type": "main", "index": 0 }]]
+    },
+    "Calcule les nouveaux jours": {
+      "main": [[{ "node": "Ecrit les nouveaux jours", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
