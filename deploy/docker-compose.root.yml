@@ -54,8 +54,7 @@ services:
       - /local-files:/files
 
   pena-app:
-    build:
-      context: https://${GITHUB_PAT}@github.com/Christel-CDL/PENA-suivi-app.git#master
+    image: ghcr.io/christel-cdl/pena-suivi-app:latest
     restart: always
     labels:
       - "traefik.enable=true"
