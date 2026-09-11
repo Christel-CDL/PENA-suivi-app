@@ -19,6 +19,7 @@ export function filterDossierBySite(dossier: Dossier, siteId: string | undefined
   const journal = dossier.journal.filter((j) => j.tacheIds.some((id) => tacheIds.has(id)));
   const contacts = dossier.contacts.filter((c) => c.projetIds.includes(siteId));
   const documents = dossier.documents.filter((d) => d.projetIds.includes(siteId));
+  const planningVisites = dossier.planningVisites.filter((v) => v.siteIds.includes(siteId));
 
-  return { ...dossier, sites, sousProjets, taches, journal, contacts, documents };
+  return { ...dossier, sites, sousProjets, taches, journal, contacts, documents, planningVisites };
 }

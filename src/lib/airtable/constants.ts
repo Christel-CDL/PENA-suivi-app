@@ -14,6 +14,7 @@ export const TABLES = {
   UTILISATEURS: "tblGTSEV4SFgB43uQ",
   ENTREES_A_VALIDER: "tblHiNsXnONUGUUVK",
   DEMANDES: "tbleLCwKPI8ZKVWVB",
+  PLANNING_VISITES: "tble9ApzEooaJNyw3",
 } as const;
 
 export const SITES_FIELDS = {
@@ -102,6 +103,12 @@ export const ENTREES_A_VALIDER_FIELDS = {
   TACHE_SUGGEREE: "fldRlvjCTO6uM9VxL",
   STATUT: "fldXhYl1ENEzAxteW",
   ENTREE_LIEE: "fld99jMDy44gaQvnB",
+} as const;
+
+export const PLANNING_VISITES_FIELDS = {
+  TITRE: "fldYJwPLx9iyTfjLR",
+  DATE: "fldEudIIzKQYXdh1b",
+  SITE: "fldkSCBcG0xkGoIkD",
 } as const;
 
 export const DEMANDES_FIELDS = {

@@ -5,6 +5,7 @@ import { listTaches, type Tache } from "@/lib/airtable/taches";
 import { listJournalEntries, type JournalEntry } from "@/lib/airtable/journal";
 import { listContacts, type Contact } from "@/lib/airtable/contacts";
 import { listDocuments, type DocumentCr } from "@/lib/airtable/documents";
+import { listPlanningVisites, type VisitePlanning } from "@/lib/airtable/planning-visites";
 import type { Utilisateur } from "@/lib/airtable/users";
 import { allowedSiteIds } from "@/lib/auth/rbac";
 
@@ -15,6 +16,7 @@ export type Dossier = {
   journal: JournalEntry[];
   contacts: Contact[];
   documents: DocumentCr[];
+  planningVisites: VisitePlanning[];
   /** Sites (IDs) associés à chaque tâche, via son (ses) sous-projet(s). */
   taskSiteIds: Map<string, string[]>;
 };
@@ -30,14 +32,16 @@ function intersects(a: string[], b: string[] | "all"): boolean {
  * qu'aucune page n'oublie le filtrage par site (exigence non négociable, section 5).
  */
 export async function loadDossier(user: Utilisateur): Promise<Dossier> {
-  const [allSites, allSousProjets, allTaches, allJournal, allContacts, allDocuments] = await Promise.all([
-    listSites(),
-    listSousProjets(),
-    listTaches(),
-    listJournalEntries(),
-    listContacts(),
-    listDocuments(),
-  ]);
+  const [allSites, allSousProjets, allTaches, allJournal, allContacts, allDocuments, allPlanningVisites] =
+    await Promise.all([
+      listSites(),
+      listSousProjets(),
+      listTaches(),
+      listJournalEntries(),
+      listContacts(),
+      listDocuments(),
+      listPlanningVisites(),
+    ]);
 
   const scope = allowedSiteIds(user);
 
@@ -68,6 +72,7 @@ export async function loadDossier(user: Utilisateur): Promise<Dossier> {
     scope === "all" ? allJournal : allJournal.filter((j) => j.tacheIds.some((id) => visibleTacheIds.has(id)));
   const contacts = allContacts.filter((c) => intersects(c.projetIds, scope));
   const documents = allDocuments.filter((d) => intersects(d.projetIds, scope));
+  const planningVisites = allPlanningVisites.filter((v) => intersects(v.siteIds, scope));
 
-  return { sites, sousProjets, taches, journal, contacts, documents, taskSiteIds };
+  return { sites, sousProjets, taches, journal, contacts, documents, planningVisites, taskSiteIds };
 }
