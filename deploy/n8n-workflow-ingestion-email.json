@@ -3,13 +3,13 @@
   "nodes": [
     {
       "id": "trigger1",
-      "name": "Toutes les 15 min",
+      "name": "Toutes les 15 min, jours ouvres 8h-20h",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [0, 0],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+          "interval": [{ "field": "cronExpression", "expression": "*/15 8-20 * * 1-5" }]
         }
       }
     },
@@ -51,7 +51,12 @@
         },
         "options": {}
       },
-      "credentials": {}
+      "credentials": {
+        "oAuth2Api": {
+          "id": "efq8lJNnVLjQJtil",
+          "name": "Outlook+calendar/N8N"
+        }
+      }
     },
     {
       "id": "code_filter",
@@ -128,7 +133,7 @@
     }
   ],
   "connections": {
-    "Toutes les 15 min": {
+    "Toutes les 15 min, jours ouvres 8h-20h": {
       "main": [[{ "node": "Calcule la date de depart", "type": "main", "index": 0 }]]
     },
     "Calcule la date de depart": {
