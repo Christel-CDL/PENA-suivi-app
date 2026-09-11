@@ -88,29 +88,38 @@ export default async function PlanningPage({
             <h2 className="mb-2 text-sm font-semibold text-slate-700">
               {MOIS[month - 1]} {year}
             </h2>
-            <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-              {parMois.get(key)!.map((e) => (
-                <div key={e.date} className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm">
-                  <span className="w-24 shrink-0 text-slate-800">{formatDate(e.date)}</span>
-                  <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-                    {e.sites.map((nom) => (
-                      <span key={nom} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                        {nom}
-                      </span>
-                    ))}
-                    {e.taches.map((t) => (
-                      <Link
-                        key={t.id}
-                        href={`/taches/${t.id}`}
-                        className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                      >
-                        <StatusBadge value={t.statut} />
-                        {t.nom}
-                      </Link>
-                    ))}
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <div className="grid grid-cols-[100px_1fr_2fr] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+                <span>Date</span>
+                <span>Jours sur site</span>
+                <span>Échéances des tâches</span>
+              </div>
+              <div className="divide-y divide-slate-200">
+                {parMois.get(key)!.map((e) => (
+                  <div key={e.date} className="grid grid-cols-[100px_1fr_2fr] gap-2 p-3 text-sm">
+                    <span className="text-slate-800">{formatDate(e.date)}</span>
+                    <div className="flex flex-wrap items-start gap-1.5">
+                      {e.sites.map((nom) => (
+                        <span key={nom} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                          {nom}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-start gap-1.5">
+                      {e.taches.map((t) => (
+                        <Link
+                          key={t.id}
+                          href={`/taches/${t.id}`}
+                          className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          <StatusBadge value={t.statut} />
+                          {t.nom}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </section>
         );
