@@ -100,7 +100,7 @@
       "typeVersion": 2,
       "position": [1100, 0],
       "parameters": {
-        "jsCode": "const claudeResponse = $json;\nconst summary = (claudeResponse.content && claudeResponse.content[0] && claudeResponse.content[0].text) || '';\nconst original = $('Filtre les emails PENA').item.json;\n\nreturn [{\n  json: {\n    fields: {\n      fldqeMY0gbHHQlSUN: original.receivedDateTime,\n      fldklS9cEhGVgWw4l: original.from,\n      fldJw5tHYusRtj3fr: summary,\n      fldXhYl1ENEzAxteW: 'A valider',\n    },\n  },\n}];"
+        "jsCode": "const claudeResponse = $json;\nconst summary = (claudeResponse.content && claudeResponse.content[0] && claudeResponse.content[0].text) || '';\nconst original = $('Filtre les emails PENA').item.json;\n\nreturn [{\n  json: {\n    fields: {\n      fldqeMY0gbHHQlSUN: original.receivedDateTime,\n      fldklS9cEhGVgWw4l: original.from,\n      fldJw5tHYusRtj3fr: summary,\n      fldXhYl1ENEzAxteW: 'À valider',\n    },\n  },\n}];"
       }
     },
     {
