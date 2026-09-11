@@ -1,11 +1,11 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { loadDossier } from "@/lib/data/dossier";
 import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
+import type { Tache } from "@/lib/airtable/taches";
 
 const MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -16,6 +16,8 @@ function moisKey(dateIso: string) {
   const d = new Date(dateIso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+type JourEntry = { date: string; sites: string[]; taches: Tache[] };
 
 export default async function PlanningPage({
   searchParams,
@@ -30,20 +32,43 @@ export default async function PlanningPage({
   const today = new Date().toISOString().slice(0, 10);
   const sitesById = new Map(dossier.sites.map((s) => [s.id, s.nom]));
 
-  const avecEcheance = dossier.taches
-    .filter((t) => t.echeance && t.echeance >= today)
-    .sort((a, b) => (a.echeance! < b.echeance! ? -1 : 1));
+  const avecEcheance = dossier.taches.filter((t) => t.echeance && t.echeance! >= today);
 
   // Jours de présence sur site, synchronisés depuis le calendrier Outlook de
   // Christel par le workflow n8n dédié (voir deploy/n8n-workflow-planning-calendrier.json).
-  const joursSurSite = dossier.planningVisites
-    .filter((v) => v.date >= today)
-    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const joursSurSite = dossier.planningVisites.filter((v) => v.date >= today);
 
-  // Un seul regroupement par mois, pour afficher jours sur site et échéances
-  // côte à côte plutôt qu'en deux longues listes séparées (moins lisible).
-  const moisKeys = new Set<string>([...avecEcheance.map((t) => moisKey(t.echeance!)), ...joursSurSite.map((v) => moisKey(v.date))]);
-  const moisTries = [...moisKeys].sort();
+  // Une seule liste triée par date : jours sur site et échéances de tâches
+  // apparaissent sur la même ligne quand ils tombent le même jour, plutôt que
+  // dans deux colonnes indépendantes difficiles à recaler visuellement.
+  const parDate = new Map<string, JourEntry>();
+  function entryFor(date: string): JourEntry {
+    let e = parDate.get(date);
+    if (!e) {
+      e = { date, sites: [], taches: [] };
+      parDate.set(date, e);
+    }
+    return e;
+  }
+  for (const v of joursSurSite) {
+    const e = entryFor(v.date);
+    for (const id of v.siteIds) {
+      const nom = sitesById.get(id) ?? id;
+      if (!e.sites.includes(nom)) e.sites.push(nom);
+    }
+  }
+  for (const t of avecEcheance) {
+    entryFor(t.echeance!).taches.push(t);
+  }
+
+  const parMois = new Map<string, JourEntry[]>();
+  for (const e of parDate.values()) {
+    const key = moisKey(e.date);
+    if (!parMois.has(key)) parMois.set(key, []);
+    parMois.get(key)!.push(e);
+  }
+  for (const entries of parMois.values()) entries.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const moisTries = [...parMois.keys()].sort();
 
   return (
     <div className="space-y-6">
@@ -58,69 +83,38 @@ export default async function PlanningPage({
 
       {moisTries.map((key) => {
         const [year, month] = key.split("-").map(Number);
-        const joursMois = joursSurSite.filter((v) => moisKey(v.date) === key);
-        const tachesMois = avecEcheance.filter((t) => moisKey(t.echeance!) === key);
-
         return (
           <section key={key}>
             <h2 className="mb-2 text-sm font-semibold text-slate-700">
               {MOIS[month - 1]} {year}
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <PlanningColumn titre="Jours sur site" vide="Aucun jour sur site ce mois-ci.">
-                {joursMois.map((v) => (
-                  <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
-                    <span className="text-slate-800">{formatDate(v.date)}</span>
-                    <span className="flex flex-wrap gap-1.5">
-                      {v.siteIds.map((id) => (
-                        <span key={id} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                          {sitesById.get(id) ?? id}
-                        </span>
-                      ))}
-                    </span>
+            <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+              {parMois.get(key)!.map((e) => (
+                <div key={e.date} className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm">
+                  <span className="w-24 shrink-0 text-slate-800">{formatDate(e.date)}</span>
+                  <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                    {e.sites.map((nom) => (
+                      <span key={nom} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                        {nom}
+                      </span>
+                    ))}
+                    {e.taches.map((t) => (
+                      <Link
+                        key={t.id}
+                        href={`/taches/${t.id}`}
+                        className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <StatusBadge value={t.statut} />
+                        {t.nom}
+                      </Link>
+                    ))}
                   </div>
-                ))}
-              </PlanningColumn>
-
-              <PlanningColumn titre="Échéances des tâches" vide="Aucune échéance ce mois-ci.">
-                {tachesMois.map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/taches/${t.id}`}
-                    className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm hover:bg-slate-50"
-                  >
-                    <span className="text-slate-800">{t.nom}</span>
-                    <span className="flex items-center gap-2">
-                      <StatusBadge value={t.statut} />
-                      <span className="text-slate-500">{formatDate(t.echeance)}</span>
-                    </span>
-                  </Link>
-                ))}
-              </PlanningColumn>
+                </div>
+              ))}
             </div>
           </section>
         );
       })}
-    </div>
-  );
-}
-
-function PlanningColumn({
-  titre,
-  vide,
-  children,
-}: {
-  titre: string;
-  vide: string;
-  children: ReactNode;
-}) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
-  return (
-    <div>
-      <h3 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">{titre}</h3>
-      <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-        {hasChildren ? children : <p className="p-4 text-sm text-slate-500">{vide}</p>}
-      </div>
     </div>
   );
 }
