@@ -4,8 +4,12 @@ import { createSessionCookie } from "@/lib/auth/session";
 import { findUtilisateurByEmail } from "@/lib/airtable/users";
 
 export async function GET(request: NextRequest) {
+  // Construit les URL de redirection à partir d'APP_URL plutôt que de
+  // request.url : derrière Traefik, ce dernier se résout à l'adresse
+  // interne du conteneur (0.0.0.0:3000) plutôt qu'au nom de domaine public.
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
   const token = request.nextUrl.searchParams.get("token");
-  const loginUrl = new URL("/login", request.url);
+  const loginUrl = new URL("/login", baseUrl);
 
   if (!token) {
     loginUrl.searchParams.set("error", "lien_invalide");
@@ -27,5 +31,5 @@ export async function GET(request: NextRequest) {
   }
 
   await createSessionCookie(user.email);
-  return NextResponse.redirect(new URL("/", request.url));
+  return NextResponse.redirect(new URL("/", baseUrl));
 }

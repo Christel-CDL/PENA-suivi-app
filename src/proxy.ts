@@ -32,13 +32,18 @@ export async function proxy(request: NextRequest) {
 
   const authenticated = await hasValidSession(request);
 
+  // APP_URL plutôt que request.url : derrière Traefik, ce dernier se résout
+  // à l'adresse interne du conteneur (0.0.0.0:3000) plutôt qu'au nom de
+  // domaine public.
+  const baseUrl = process.env.APP_URL || "http://localhost:3000";
+
   if (!authenticated && !isPublic) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login", baseUrl);
     return NextResponse.redirect(loginUrl);
   }
 
   if (authenticated && pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", baseUrl));
   }
 
   return NextResponse.next();
