@@ -37,7 +37,12 @@ Onglet **Entrées à valider** (Admin uniquement). C'est ici qu'arrivent les ré
 
 ## 4. Redéployer une nouvelle version de l'application
 
-Le code source est sur un dépôt GitHub privé ; le VPS reconstruit l'application à partir de ce dépôt. Pour l'instant, le plus simple est de **demander à Claude, dans une conversation, de redéployer la dernière version**. Cela ne touche pas n8n ni les autres services du serveur.
+Le code source est sur un dépôt GitHub privé (`Christel-CDL/PENA-suivi-app`). Claude prépare et envoie le code, mais **deux actions restent à faire par vous** (des restrictions de sécurité empêchent Claude de les faire lui-même) :
+
+1. **Envoyer le code** : Claude vous donnera une commande `git push` à coller dans un terminal PowerShell sur votre PC.
+2. **Redéployer sur le serveur** : dans hPanel → VPS → Docker → projet **root** → bouton **Deploy/Déployer**. Cela télécharge la nouvelle version de l'image (construite automatiquement par GitHub Actions dès que le code est envoyé, ça prend 2-3 minutes) et redémarre `pena-app` — n8n et Traefik ne sont normalement pas affectés tant que leur configuration ne change pas.
+
+En cas de doute, demandez à Claude de vous guider étape par étape — il peut vérifier les journaux de déploiement (lecture seule) même s'il ne peut pas cliquer sur "Déployer" à votre place.
 
 ## 5. Surveiller que le workflow n8n tourne toujours
 
