@@ -60,7 +60,12 @@ export async function loadDossier(user: Utilisateur): Promise<Dossier> {
     taskSiteIds.set(tache.id, [...ids]);
   }
 
-  const journal = allJournal.filter((j) => j.tacheIds.some((id) => visibleTacheIds.has(id)));
+  // Une entrée sans tâche liée (ex. e-mail automatique sans correspondance
+  // trouvée) n'a aucune info de site rattachée : on ne peut pas l'attribuer
+  // à un site précis pour un Contributeur limité, donc on la lui masque par
+  // prudence. Pour un Admin ("all"), rien ne doit jamais disparaître.
+  const journal =
+    scope === "all" ? allJournal : allJournal.filter((j) => j.tacheIds.some((id) => visibleTacheIds.has(id)));
   const contacts = allContacts.filter((c) => intersects(c.projetIds, scope));
   const documents = allDocuments.filter((d) => intersects(d.projetIds, scope));
 
