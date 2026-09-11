@@ -13,14 +13,15 @@ export default async function JournalPage({
 }) {
   const user = (await getCurrentUser())!;
   const { site } = await searchParams;
-  const dossier = filterDossierBySite(await loadDossier(user), site);
+  const fullDossier = await loadDossier(user);
+  const dossier = filterDossierBySite(fullDossier, site);
   const tachesById = new Map(dossier.taches.map((t) => [t.id, t]));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Journal des actions</h1>
-        <SiteFilterTabs sites={dossier.sites} />
+        <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
       <JournalForm />

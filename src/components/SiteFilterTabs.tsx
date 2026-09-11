@@ -18,7 +18,7 @@ export function SiteFilterTabs({ sites }: { sites: { id: string; nom: string }[]
 
   if (sites.length <= 1) return null;
 
-  const tabs = [{ id: "all", nom: "Tous les sites autorisés" }, ...sites];
+  const tabs = [{ id: "all", nom: "Tous les sites" }, ...sites];
 
   return (
     <div className="flex flex-wrap gap-2">

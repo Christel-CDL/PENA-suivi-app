@@ -42,7 +42,8 @@ export default async function TachesPage({
 }) {
   const user = (await getCurrentUser())!;
   const { site, statut, q, priorite, echeance } = await searchParams;
-  const dossier = filterDossierBySite(await loadDossier(user), site);
+  const fullDossier = await loadDossier(user);
+  const dossier = filterDossierBySite(fullDossier, site);
 
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
   const query = (q ?? "").trim().toLowerCase();
@@ -85,7 +86,7 @@ export default async function TachesPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Tâches</h1>
-        <SiteFilterTabs sites={dossier.sites} />
+        <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
       {isAdmin(user) && (

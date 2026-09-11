@@ -22,7 +22,8 @@ export default async function DashboardPage({
 }) {
   const user = (await getCurrentUser())!;
   const { site } = await searchParams;
-  const dossier = filterDossierBySite(await loadDossier(user), site);
+  const fullDossier = await loadDossier(user);
+  const dossier = filterDossierBySite(fullDossier, site);
   const { sites, taches } = dossier;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -61,7 +62,7 @@ export default async function DashboardPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Tableau de bord</h1>
-        <SiteFilterTabs sites={sites} />
+        <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

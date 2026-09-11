@@ -13,14 +13,15 @@ export default async function ContactsPage({
 }) {
   const user = (await getCurrentUser())!;
   const { site } = await searchParams;
-  const dossier = filterDossierBySite(await loadDossier(user), site);
+  const fullDossier = await loadDossier(user);
+  const dossier = filterDossierBySite(fullDossier, site);
   const admin = isAdmin(user);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Contacts</h1>
-        <SiteFilterTabs sites={dossier.sites} />
+        <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
       {admin && <NewContactForm sites={dossier.sites} />}

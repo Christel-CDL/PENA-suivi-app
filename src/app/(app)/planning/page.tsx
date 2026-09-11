@@ -18,7 +18,8 @@ export default async function PlanningPage({
 }) {
   const user = (await getCurrentUser())!;
   const { site } = await searchParams;
-  const dossier = filterDossierBySite(await loadDossier(user), site);
+  const fullDossier = await loadDossier(user);
+  const dossier = filterDossierBySite(fullDossier, site);
 
   const avecEcheance = dossier.taches
     .filter((t) => t.echeance)
@@ -36,7 +37,7 @@ export default async function PlanningPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Planning</h1>
-        <SiteFilterTabs sites={dossier.sites} />
+        <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
       {groupes.size === 0 && <p className="text-sm text-slate-500">Aucune tâche avec échéance.</p>}
