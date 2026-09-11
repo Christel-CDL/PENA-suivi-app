@@ -1,0 +1,81 @@
+services:
+  traefik:
+    image: "traefik"
+    restart: always
+    command:
+      - "--api=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.mytlschallenge.acme.tlschallenge=true"
+      - "--certificatesresolvers.mytlschallenge.acme.email=${SSL_EMAIL}"
+      - "--certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik_data:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    ports:
+      - "127.0.0.1:5678:5678"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.n8n.entrypoints=web,websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=mytlschallenge"
+      - "traefik.http.middlewares.n8n.headers.SSLRedirect=true"
+      - "traefik.http.middlewares.n8n.headers.STSSeconds=315360000"
+      - "traefik.http.middlewares.n8n.headers.browserXSSFilter=true"
+      - "traefik.http.middlewares.n8n.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.n8n.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.n8n.headers.SSLHost=${DOMAIN_NAME}"
+      - "traefik.http.middlewares.n8n.headers.STSIncludeSubdomains=true"
+      - "traefik.http.middlewares.n8n.headers.STSPreload=true"
+      - "traefik.http.routers.n8n.middlewares=n8n@docker"
+    environment:
+      - N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_PROXY_HOPS=1
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - /local-files:/files
+
+  pena-app:
+    build:
+      context: https://${GITHUB_PAT}@github.com/Christel-CDL/PENA-suivi-app.git#master
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pena-app.rule=Host(`${PENA_SUBDOMAIN}.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.pena-app.tls=true"
+      - "traefik.http.routers.pena-app.entrypoints=web,websecure"
+      - "traefik.http.routers.pena-app.tls.certresolver=mytlschallenge"
+      - "traefik.http.services.pena-app.loadbalancer.server.port=3000"
+    environment:
+      - AIRTABLE_PAT=${PENA_AIRTABLE_PAT}
+      - AUTH_SECRET=${PENA_AUTH_SECRET}
+      - APP_URL=https://${PENA_SUBDOMAIN}.${DOMAIN_NAME}
+      - SMTP_HOST=${PENA_SMTP_HOST}
+      - SMTP_PORT=${PENA_SMTP_PORT}
+      - SMTP_USER=${PENA_SMTP_USER}
+      - SMTP_PASS=${PENA_SMTP_PASS}
+      - SMTP_FROM=${PENA_SMTP_FROM}
+
+volumes:
+  traefik_data:
+    external: true
+  n8n_data:
+    external: true
