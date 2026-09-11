@@ -1,0 +1,153 @@
+{
+  "name": "PENA - Ingestion e-mails",
+  "nodes": [
+    {
+      "id": "trigger1",
+      "name": "Toutes les 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+        }
+      }
+    },
+    {
+      "id": "code_since",
+      "name": "Calcule la date de depart",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst since = staticData.lastCheck || '2026-09-10T00:00:00Z';\nstaticData.lastCheck = new Date().toISOString();\nreturn [{ json: { since } }];"
+      }
+    },
+    {
+      "id": "http_get_mails",
+      "name": "Lit les emails Outlook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Prefer", "value": "outlook.body-content-type=\"text\"" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "$filter", "value": "={{ 'receivedDateTime ge ' + $json.since }}" },
+            { "name": "$select", "value": "subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,id" },
+            { "name": "$top", "value": "50" },
+            { "name": "$orderby", "value": "receivedDateTime asc" }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {}
+    },
+    {
+      "id": "code_filter",
+      "name": "Filtre les emails PENA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0],
+      "parameters": {
+        "jsCode": "const items = $input.first().json.value || [];\nconst results = [];\nconst EXCLUDE_SENDER = 'cdlexpertises@isanetfact.facturation.io';\n\nfunction addr(a) { return ((a && a.emailAddress && a.emailAddress.address) || '').toLowerCase(); }\n\nfor (const msg of items) {\n  const fromAddr = addr(msg.from);\n  if (fromAddr === EXCLUDE_SENDER) continue;\n\n  const toAddrs = (msg.toRecipients || []).map(addr);\n  const ccAddrs = (msg.ccRecipients || []).map(addr);\n  const allAddrs = [fromAddr, ...toAddrs, ...ccAddrs];\n  const hasPenaDomain = allAddrs.some((a) => a.endsWith('@groupepena.fr'));\n\n  const subject = msg.subject || '';\n  const bodyText = (msg.body && msg.body.content) || msg.bodyPreview || '';\n  const haystack = (subject + ' ' + bodyText).toLowerCase();\n  const hasPenaKeyword = haystack.includes('pena');\n\n  if (!hasPenaDomain && !hasPenaKeyword) continue;\n\n  results.push({\n    json: {\n      id: msg.id,\n      subject,\n      from: fromAddr,\n      receivedDateTime: msg.receivedDateTime,\n      bodyText: bodyText.slice(0, 6000),\n    },\n  });\n}\n\nreturn results;"
+      }
+    },
+    {
+      "id": "http_claude",
+      "name": "Resume avec Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  model: \"claude-haiku-4-5\",\n  max_tokens: 300,\n  system: \"Tu resumes des e-mails professionnels pour un journal de suivi de dossier ICPE (reglementation environnementale industrielle) en France. Redige un resume factuel et concis (2 a 4 phrases), en francais, de ce que dit cet e-mail -- ce qui a ete communique, demande ou decide. Ne recopie jamais le texte brut de l'e-mail. N'invente rien et ne suppose aucune action a entreprendre. Si l'e-mail ne contient aucune information exploitable pour un suivi de dossier, reponds exactement : 'Aucune information exploitable.'\",\n  messages: [\n    { role: \"user\", content: \"Objet : \" + $json.subject + \"\\n\\nContenu :\\n\" + $json.bodyText }\n  ]\n} }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Tc7iyXJhcOZnly8C",
+          "name": "Anthropic API (header)"
+        }
+      }
+    },
+    {
+      "id": "code_prepare",
+      "name": "Prepare l'enregistrement Airtable",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 0],
+      "parameters": {
+        "jsCode": "const claudeResponse = $json;\nconst summary = (claudeResponse.content && claudeResponse.content[0] && claudeResponse.content[0].text) || '';\nconst original = $('Filtre les emails PENA').item.json;\n\nreturn [{\n  json: {\n    fields: {\n      fldqeMY0gbHHQlSUN: original.receivedDateTime,\n      fldklS9cEhGVgWw4l: original.from,\n      fldJw5tHYusRtj3fr: summary,\n      fldXhYl1ENEzAxteW: 'A valider',\n    },\n  },\n}];"
+      }
+    },
+    {
+      "id": "http_airtable",
+      "name": "Ecrit dans Entrees a valider",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tblHiNsXnONUGUUVK?returnFieldsByFieldId=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { records: [ { fields: $json.fields } ] } }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Toutes les 15 min": {
+      "main": [[{ "node": "Calcule la date de depart", "type": "main", "index": 0 }]]
+    },
+    "Calcule la date de depart": {
+      "main": [[{ "node": "Lit les emails Outlook", "type": "main", "index": 0 }]]
+    },
+    "Lit les emails Outlook": {
+      "main": [[{ "node": "Filtre les emails PENA", "type": "main", "index": 0 }]]
+    },
+    "Filtre les emails PENA": {
+      "main": [[{ "node": "Resume avec Claude", "type": "main", "index": 0 }]]
+    },
+    "Resume avec Claude": {
+      "main": [[{ "node": "Prepare l'enregistrement Airtable", "type": "main", "index": 0 }]]
+    },
+    "Prepare l'enregistrement Airtable": {
+      "main": [[{ "node": "Ecrit dans Entrees a valider", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
