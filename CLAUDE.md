@@ -10,6 +10,7 @@ Application de suivi de dossier ICPE pour deux sites clients (PENA Métaux, PENA
 
 - `npm run dev` — serveur local (port 3000). Copier `.env.example` en `.env` d'abord.
 - `npx next build` puis `npx eslint . --max-warnings=0` — doivent passer proprement avant chaque commit (convention du projet). Il n'y a **pas de suite de tests**.
+- `npm run dev` travaille sur la **vraie base Airtable** : toute donnée de test (préfixe « ZZ TEST ») doit être supprimée ensuite ; arrêter le serveur par son port, jamais `taskkill /IM node.exe`. Méthode de test (cookie de session signé, deux requêtes à cause du cache) : voir NOTES-TECHNIQUES.md.
 - Shell : le terminal de Christel est **PowerShell** (pas Bash : pas de `&&`, `grep`, `cut`) ; l'outil Bash de Claude est Git Bash.
 
 ## Architecture (vue d'ensemble)
