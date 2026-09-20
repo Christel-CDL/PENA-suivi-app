@@ -52,6 +52,8 @@ export default async function TachesPage({
       : []),
   ];
 
+  const sousProjetsParId = new Map(fullDossier.sousProjets.map((sp) => [sp.id, sp]));
+
   // Données déjà mises en forme pour la liste interactive (composant client).
   const groupesAffiches: GroupeTaches[] = groupes.map((g) => ({
     id: g.id,
@@ -69,6 +71,7 @@ export default async function TachesPage({
         echeanceLabel: formatDate(t.echeance),
         enRetard: isOverdue(t.echeance) && t.statut !== "Terminé",
         selectable: canEditTask(user, t),
+        siteId: (sousProjetsParId.get(t.sousProjetIds[0])?.projetIds[0]) ?? null,
       };
     }),
   }));
@@ -137,7 +140,12 @@ export default async function TachesPage({
         </p>
       )}
 
-      <TachesListe groupes={groupesAffiches} sousProjets={sousProjetsPourCreation} isAdmin={isAdmin(user)} />
+      <TachesListe
+        groupes={groupesAffiches}
+        sousProjets={sousProjetsPourCreation}
+        sites={fullDossier.sites.map((s) => ({ id: s.id, nom: s.nom }))}
+        isAdmin={isAdmin(user)}
+      />
     </div>
   );
 }

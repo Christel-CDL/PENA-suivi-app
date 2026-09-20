@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { assertAdmin, canEditTask } from "@/lib/auth/rbac";
 import { createTache, listTaches, updateTachesStatut, deplacerTaches } from "@/lib/airtable/taches";
-import { listSousProjets } from "@/lib/airtable/sous-projets";
+import { listSousProjets, createSousProjet } from "@/lib/airtable/sous-projets";
+import { listSites } from "@/lib/airtable/sites";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
 
 export type FormState = { status: "idle" | "error"; message?: string };
@@ -109,4 +110,49 @@ export async function createTacheAction(_prev: FormState, formData: FormData): P
   revalidatePath("/taches");
   revalidatePath("/");
   redirect(`/taches/${tache.id}`);
+}
+
+/**
+ * Regroupement : crée un nouveau sous-projet sur un site puis y range les tâches
+ * sélectionnées (même une seule). Réservé à l'Admin.
+ */
+export async function bulkRegrouperAction(ids: string[], nom: string, siteId: string): Promise<BulkResult> {
+  const user = await getCurrentUser();
+  try {
+    assertAdmin(user);
+  } catch (err) {
+    return { status: "error", message: (err as Error).message };
+  }
+  const titre = nom.trim();
+  if (!titre) return { status: "error", message: "Le nom du sous-projet est obligatoire." };
+  if (titre.length > 120) return { status: "error", message: "Nom trop long (120 caractères maximum)." };
+  const demandes = [...new Set(ids)];
+  if (demandes.length === 0 || demandes.length > MAX_LOT) {
+    return { status: "error", message: `Sélectionnez entre 1 et ${MAX_LOT} tâches.` };
+  }
+
+  const site =(await listSites()).find((s) => s.id === siteId);
+  if (!site) return { status: "error", message: "Site introuvable." };
+
+  const doublon = (await listSousProjets()).some(
+    (sp) => sp.projetIds.includes(siteId) && sp.nom.trim().toLowerCase() === titre.toLowerCase(),
+  );
+  if (doublon) {
+    return {
+      status: "error",
+      message: `Un sous-projet « ${titre} » existe déjà sur ${site.nom} : utilisez « Déplacer vers ce sous-projet ».`,
+    };
+  }
+
+  const existantes = new Set((await listTaches()).map((t) => t.id));
+  const valides = demandes.filter((id) => existantes.has(id));
+  if (valides.length === 0) return { status: "error", message: "Tâches introuvables." };
+
+  const sousProjet = await createSousProjet({ nom: titre, projetIds: [siteId] });
+  await deplacerTaches(valides, sousProjet.id);
+  revaloriserListes();
+  return {
+    status: "success",
+    message: `Sous-projet « ${titre} » créé sur ${site.nom} avec ${valides.length} tâche(s).`,
+  };
 }

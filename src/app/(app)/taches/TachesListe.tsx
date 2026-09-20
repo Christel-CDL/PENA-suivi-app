@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SousProjetSelect, type SousProjetGroupe } from "@/components/SousProjetSelect";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
-import { bulkStatutAction, bulkDeplacerAction, type BulkResult } from "./actions";
+import { bulkStatutAction, bulkDeplacerAction, bulkRegrouperAction, type BulkResult } from "./actions";
 
 export type LigneTache = {
   id: string;
@@ -18,6 +18,7 @@ export type LigneTache = {
   enRetard: boolean;
   /** Case cochable : Admin partout, Contributeur seulement sur ses propres tâches. */
   selectable: boolean;
+  siteId: string | null;
 };
 
 export type GroupeTaches = { id: string; nom: string; taches: LigneTache[] };
@@ -27,12 +28,15 @@ const CONTROLE = "rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
 export function TachesListe({
   groupes,
   sousProjets,
+  sites,
   isAdmin,
 }: {
   groupes: GroupeTaches[];
   sousProjets: SousProjetGroupe[];
+  sites: { id: string; nom: string }[];
   isAdmin: boolean;
 }) {
+  const [regrouper, setRegrouper] = useState(false);
   const [coches, setCoches] = useState<Set<string>>(new Set());
   const [resultat, setResultat] = useState<BulkResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,6 +46,11 @@ export function TachesListe({
   const visibles = new Set(groupes.flatMap((g) => g.taches.map((t) => t.id)));
   const selection = [...coches].filter((id) => visibles.has(id));
   const selectionSet = new Set(selection);
+
+  // Site proposé pour un nouveau sous-projet : celui des tâches cochées, s'il est unique.
+  const siteParId = new Map(groupes.flatMap((g) => g.taches.map((t) => [t.id, t.siteId] as const)));
+  const sitesCoches = new Set(selection.map((id) => siteParId.get(id) ?? null));
+  const siteParDefaut = sitesCoches.size === 1 ? ([...sitesCoches][0] ?? "") : "";
 
   function basculer(id: string) {
     setResultat(null);
@@ -69,7 +78,10 @@ export function TachesListe({
     startTransition(async () => {
       const r = await action();
       setResultat(r);
-      if (r.status === "success") setCoches(new Set());
+      if (r.status === "success") {
+        setCoches(new Set());
+        setRegrouper(false);
+      }
     });
   }
 
@@ -131,6 +143,16 @@ export function TachesListe({
             </form>
           )}
 
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setRegrouper((v) => !v)}
+              className="text-slate-700 underline hover:text-slate-900"
+            >
+              {regrouper ? "Annuler le regroupement" : "Regrouper dans un nouveau sous-projet"}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setCoches(new Set())}
@@ -138,6 +160,49 @@ export function TachesListe({
           >
             Tout désélectionner
           </button>
+
+          {isAdmin && regrouper && (
+            <form
+              action={(fd) =>
+                lancer(() =>
+                  bulkRegrouperAction(selection, String(fd.get("nom") ?? ""), String(fd.get("siteId") ?? "")),
+                )
+              }
+              className="flex w-full flex-wrap items-center gap-2 border-t border-slate-200 pt-3"
+            >
+              <input
+                name="nom"
+                required
+                maxLength={120}
+                placeholder="Nom du nouveau sous-projet"
+                className={`${CONTROLE} min-w-64 flex-1`}
+              />
+              <select
+                key={siteParDefaut}
+                name="siteId"
+                required
+                defaultValue={siteParDefaut}
+                className={CONTROLE}
+                aria-label="Site du nouveau sous-projet"
+              >
+                <option value="" disabled>
+                  Site…
+                </option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nom}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-md bg-slate-900 px-3 py-1 text-sm text-white disabled:opacity-50"
+              >
+                {pending ? "…" : "Créer et regrouper"}
+              </button>
+            </form>
+          )}
         </div>
       )}
 
