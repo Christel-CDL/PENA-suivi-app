@@ -25,13 +25,22 @@ export default async function TachesPage({
   const priorites = priorite ? priorite.split(",") : null;
   const today = new Date().toISOString().slice(0, 10);
 
+  // Par défaut (aucun statut choisi), les tâches terminées ou annulées sont
+  // masquées ; on les retrouve avec le filtre de statut ("Tous" ou un statut précis).
+  const masquerCloturees = !statut;
+  let masquees = 0;
+
   const taches = dossier.taches.filter((t) => {
-    if (statut && t.statut !== statut) return false;
+    if (statut && statut !== "tous" && t.statut !== statut) return false;
     if (priorites && !priorites.includes(t.priorite)) return false;
     if (echeance === "depassee") {
       if (!t.echeance || t.echeance >= today || t.statut === "Terminé" || t.statut === "Annulée") return false;
     }
     if (query && !t.nom.toLowerCase().includes(query)) return false;
+    if (masquerCloturees && (t.statut === "Terminé" || t.statut === "Annulée")) {
+      masquees++;
+      return false;
+    }
     return true;
   });
 
@@ -111,7 +120,8 @@ export default async function TachesPage({
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
         />
         <select name="statut" defaultValue={statut ?? ""} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
-          <option value="">Tous les statuts</option>
+          <option value="">Tâches en cours de suivi</option>
+          <option value="tous">Tous les statuts (y compris terminées et annulées)</option>
           {TACHE_STATUTS.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -132,6 +142,13 @@ export default async function TachesPage({
             Réinitialiser
           </Link>
         </div>
+      )}
+
+      {masquees > 0 && (
+        <p className="text-sm text-slate-500">
+          {masquees} tâche{masquees > 1 ? "s" : ""} terminée{masquees > 1 ? "s" : ""} ou annulée{masquees > 1 ? "s" : ""}{" "}
+          masquée{masquees > 1 ? "s" : ""} — choisissez « Tous les statuts » dans le filtre pour les afficher.
+        </p>
       )}
 
       {taches.length === 0 && (

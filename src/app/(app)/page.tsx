@@ -27,6 +27,8 @@ export default async function DashboardPage({
   const { sites, taches } = dossier;
 
   const today = new Date().toISOString().slice(0, 10);
+  // Même périmètre que la liste des tâches par défaut : sans les terminées ni annulées.
+  const tachesEnCours = taches.filter((t) => t.statut !== "Terminé" && t.statut !== "Annulée").length;
   const enCours = taches.filter((t) => t.statut === "En cours").length;
   const aEngager = taches.filter((t) => t.statut === "À faire").length;
   const prioritaires = taches.filter((t) => t.priorite === "Urgente" || t.priorite === "Haute").length;
@@ -66,7 +68,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Tâches suivies" value={taches.length} href={tachesHref({})} />
+        <Stat label="Tâches suivies" value={tachesEnCours} href={tachesHref({})} />
         <Stat label="En cours" value={enCours} href={tachesHref({ statut: "En cours" })} />
         <Stat label="À engager" value={aEngager} href={tachesHref({ statut: "À faire" })} />
         <Stat label="Priorité haute / urgente" value={prioritaires} href={tachesHref({ priorite: "Urgente,Haute" })} />
