@@ -3,37 +3,12 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { loadDossier } from "@/lib/data/dossier";
 import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
-import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate, isOverdue } from "@/lib/format";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
-import { isAdmin } from "@/lib/auth/rbac";
+import { isAdmin, canEditTask } from "@/lib/auth/rbac";
 import { NewTacheForm } from "./NewTacheForm";
+import { TachesListe, type GroupeTaches } from "./TachesListe";
 import type { Tache } from "@/lib/airtable/taches";
-import type { Contact } from "@/lib/airtable/contacts";
-
-function TacheRow({ tache, contactsById }: { tache: Tache; contactsById: Map<string, Contact> }) {
-  const responsables = tache.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
-  const prestataires = tache.prestataireContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
-  const prestataireLabel = prestataires.length > 0 ? prestataires.join(", ") : tache.prestataireAncienTexte;
-  return (
-    <Link href={`/taches/${tache.id}`} className="block p-4 hover:bg-slate-50">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-slate-900">{tache.nom}</p>
-        <div className="flex items-center gap-2">
-          <StatusBadge value={tache.priorite} />
-          <StatusBadge value={tache.statut} />
-        </div>
-      </div>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-        {responsables.length > 0 && <span>Responsable : {responsables.join(", ")}</span>}
-        {prestataireLabel && <span>Prestataire : {prestataireLabel}</span>}
-        <span className={isOverdue(tache.echeance) && tache.statut !== "Terminé" ? "font-medium text-red-600" : ""}>
-          Échéance : {formatDate(tache.echeance)}
-        </span>
-      </div>
-    </Link>
-  );
-}
 
 export default async function TachesPage({
   searchParams,
@@ -76,6 +51,27 @@ export default async function TachesPage({
       ? [{ id: "_sans", nom: "Sans sous-projet", taches: tachesBySousProjet.get("_sans")! }]
       : []),
   ];
+
+  // Données déjà mises en forme pour la liste interactive (composant client).
+  const groupesAffiches: GroupeTaches[] = groupes.map((g) => ({
+    id: g.id,
+    nom: g.nom,
+    taches: g.taches.map((t) => {
+      const responsables = t.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
+      const prestataires = t.prestataireContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
+      return {
+        id: t.id,
+        nom: t.nom,
+        priorite: t.priorite,
+        statut: t.statut,
+        responsables: responsables.join(", "),
+        prestataire: prestataires.length > 0 ? prestataires.join(", ") : t.prestataireAncienTexte,
+        echeanceLabel: formatDate(t.echeance),
+        enRetard: isOverdue(t.echeance) && t.statut !== "Terminé",
+        selectable: canEditTask(user, t),
+      };
+    }),
+  }));
 
   // Pour créer une tâche, tous les sous-projets doivent être proposés (regroupés
   // par site), quel que soit l'onglet de site actuellement affiché.
@@ -141,18 +137,7 @@ export default async function TachesPage({
         </p>
       )}
 
-      {groupes.map((groupe) => (
-        <section key={groupe.id}>
-          <h2 className="mb-2 text-lg font-semibold text-slate-800">
-            {groupe.nom} <span className="text-sm font-normal text-slate-400">({groupe.taches.length})</span>
-          </h2>
-          <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-            {groupe.taches.map((t) => (
-              <TacheRow key={t.id} tache={t} contactsById={contactsById} />
-            ))}
-          </div>
-        </section>
-      ))}
+      <TachesListe groupes={groupesAffiches} sousProjets={sousProjetsPourCreation} isAdmin={isAdmin(user)} />
     </div>
   );
 }

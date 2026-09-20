@@ -94,6 +94,31 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
   return mapTache(record);
 }
 
+const LOT_AIRTABLE = 10; // limite Airtable par requête d'écriture
+
+/**
+ * Changement de statut en lot. Aucun contrôle d'accès ici : l'appelant doit
+ * avoir filtré les ids avec canEditTask (voir taches/actions.ts).
+ */
+export async function updateTachesStatut(ids: string[], statut: string) {
+  for (let i = 0; i < ids.length; i += LOT_AIRTABLE) {
+    await updateRecords<RawFields>(
+      TABLES.TACHES,
+      ids.slice(i, i + LOT_AIRTABLE).map((id) => ({ id, fields: { [F.STATUT]: statut } })),
+    );
+  }
+}
+
+/** Déplace des tâches vers un autre sous-projet (Admin uniquement, vérifié par l'appelant). */
+export async function deplacerTaches(ids: string[], sousProjetId: string) {
+  for (let i = 0; i < ids.length; i += LOT_AIRTABLE) {
+    await updateRecords<RawFields>(
+      TABLES.TACHES,
+      ids.slice(i, i + LOT_AIRTABLE).map((id) => ({ id, fields: { [F.SOUS_PROJET_ASSOCIE]: [sousProjetId] } })),
+    );
+  }
+}
+
 /** Création directe — réservée à l'Admin (voir lib/auth/rbac.ts). */
 export async function createTache(input: {
   nom: string;
