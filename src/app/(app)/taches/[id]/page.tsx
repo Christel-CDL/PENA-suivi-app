@@ -11,6 +11,7 @@ import { ResponsableField } from "./ResponsableField";
 import { PartiesPrenantesField } from "./PartiesPrenantesField";
 import { PrestataireField } from "./PrestataireField";
 import { NewContactField } from "./NewContactField";
+import { DeleteTacheButton } from "./DeleteTacheButton";
 import { JournalEntryRow } from "@/app/(app)/journal/JournalEntryRow";
 
 export default async function TacheDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -125,6 +126,12 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           ))}
         </div>
       </section>
+
+      {admin && (
+        <section className="border-t border-slate-200 pt-4">
+          <DeleteTacheButton tacheId={tache.id} nom={tache.nom} nbJournal={historique.length} />
+        </section>
+      )}
     </div>
   );
 }

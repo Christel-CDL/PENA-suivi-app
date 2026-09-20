@@ -1,5 +1,5 @@
 import "server-only";
-import { listRecords, getRecord, updateRecords, createRecords } from "./client";
+import { listRecords, getRecord, updateRecords, createRecords, deleteRecords } from "./client";
 import { TABLES, TACHES_FIELDS as F } from "./constants";
 
 export type Tache = {
@@ -92,6 +92,11 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
 
   const [record] = await updateRecords<RawFields>(TABLES.TACHES, [{ id, fields }]);
   return mapTache(record);
+}
+
+/** Suppression définitive — réservée à l'Admin, vérifié par l'appelant. Les entrées de journal liées restent, sans tâche. */
+export async function deleteTache(id: string) {
+  await deleteRecords(TABLES.TACHES, [id]);
 }
 
 const LOT_AIRTABLE = 10; // limite Airtable par requête d'écriture

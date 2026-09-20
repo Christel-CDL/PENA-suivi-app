@@ -1,8 +1,9 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getTache, updateTacheFields } from "@/lib/airtable/taches";
+import { getTache, updateTacheFields, deleteTache } from "@/lib/airtable/taches";
 import { createJournalEntry } from "@/lib/airtable/journal";
 import { createContact } from "@/lib/airtable/contacts";
 import { canEditTask, canAddJournalEntry, assertAdmin } from "@/lib/auth/rbac";
@@ -34,6 +35,28 @@ export async function updateTacheAction(_prev: FormState, formData: FormData): P
   revalidatePath("/taches");
   revalidatePath("/");
   return { status: "success", message: "Tâche mise à jour." };
+}
+
+/** Suppression définitive d'une tâche — Admin uniquement (jamais seulement masquée dans l'UI). */
+export async function deleteTacheAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  try {
+    assertAdmin(user);
+  } catch (err) {
+    return { status: "error", message: (err as Error).message };
+  }
+
+  const id = String(formData.get("id"));
+  const tache = await getTache(id);
+  if (!tache) return { status: "error", message: "Tâche introuvable (déjà supprimée ?)." };
+
+  await deleteTache(id);
+
+  revalidatePath("/taches");
+  revalidatePath("/journal");
+  revalidatePath("/planning");
+  revalidatePath("/");
+  redirect("/taches");
 }
 
 export async function addCommentAction(_prev: FormState, formData: FormData): Promise<FormState> {
