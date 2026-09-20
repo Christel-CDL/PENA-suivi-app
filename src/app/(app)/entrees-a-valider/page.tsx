@@ -18,10 +18,16 @@ export default async function EntreesAValiderPage() {
   const sitesById = new Map(dossier.sites.map((s) => [s.id, s.nom]));
   const sousProjetsById = new Map(dossier.sousProjets.map((sp) => [sp.id, sp]));
 
+  const suggerees = new Set(enAttente.map((e) => e.tacheSuggereeId).filter((id): id is string => Boolean(id)));
+
   const picker: PickerData = {
     sites: dossier.sites.map((s) => ({ id: s.id, nom: s.nom })),
     sousProjets: dossier.sousProjets.map((sp) => ({ id: sp.id, nom: sp.nom, siteId: sp.projetIds[0] ?? null })),
-    taches: dossier.taches.map((t) => {
+    // Les tâches terminées ou annulées ne sont plus proposées (sauf si une entrée
+    // en attente les avait déjà suggérées, pour ne pas les faire disparaître).
+    taches: dossier.taches
+      .filter((t) => (t.statut !== "Terminé" && t.statut !== "Annulée") || suggerees.has(t.id))
+      .map((t) => {
       const sp = sousProjetsById.get(t.sousProjetIds[0]);
       const siteId = sp?.projetIds[0] ?? null;
       return {
