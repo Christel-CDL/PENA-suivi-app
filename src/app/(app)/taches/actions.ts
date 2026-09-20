@@ -9,7 +9,7 @@ import { listSousProjets, createSousProjet } from "@/lib/airtable/sous-projets";
 import { listSites } from "@/lib/airtable/sites";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
 
-export type FormState = { status: "idle" | "error"; message?: string };
+export type FormState = { status: "idle" | "success" | "error"; message?: string };
 export type BulkResult = { status: "success" | "error"; message: string };
 
 const MAX_LOT = 200;
@@ -80,6 +80,40 @@ export async function bulkDeplacerAction(ids: string[], sousProjetId: string): P
   await deplacerTaches(valides, sousProjetId);
   revaloriserListes();
   return { status: "success", message: `${valides.length} tâche(s) déplacée(s) vers « ${sousProjet.nom} ».` };
+}
+
+/** Création directe d'un sous-projet (vide) — Admin uniquement ; un Contributeur passe par Demandes. */
+export async function createSousProjetAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await getCurrentUser();
+  try {
+    assertAdmin(user);
+  } catch (err) {
+    return { status: "error", message: (err as Error).message };
+  }
+
+  const nom = String(formData.get("nom") ?? "").trim();
+  const siteId = String(formData.get("siteId") ?? "");
+  const description = String(formData.get("description") ?? "").trim();
+  if (!nom) return { status: "error", message: "Le nom du sous-projet est obligatoire." };
+  if (nom.length > 120) return { status: "error", message: "Nom trop long (120 caractères maximum)." };
+  if (!siteId) return { status: "error", message: "Choisissez le site." };
+
+  const site = (await listSites()).find((s) => s.id === siteId);
+  if (!site) return { status: "error", message: "Site introuvable." };
+
+  const doublon = (await listSousProjets()).some(
+    (sp) => sp.projetIds.includes(siteId) && sp.nom.trim().toLowerCase() === nom.toLowerCase(),
+  );
+  if (doublon) return { status: "error", message: `Un sous-projet « ${nom} » existe déjà sur ${site.nom}.` };
+
+  await createSousProjet({ nom, projetIds: [siteId], description });
+
+  revalidatePath("/taches");
+  revalidatePath("/");
+  return {
+    status: "success",
+    message: `Sous-projet « ${nom} » créé sur ${site.nom}. Il est maintenant proposé dans « + Nouvelle tâche ».`,
+  };
 }
 
 /** Création directe — réservée à l'Admin (section 5) ; un Contributeur passe par Demandes. */

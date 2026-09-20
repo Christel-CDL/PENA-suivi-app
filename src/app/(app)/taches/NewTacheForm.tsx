@@ -30,7 +30,7 @@ export function NewTacheForm({
   }
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+    <form action={formAction} className="w-full space-y-3 rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm sm:col-span-2">
           <span className="mb-1 block text-slate-600">Nom de la tâche</span>

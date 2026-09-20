@@ -7,6 +7,7 @@ import { formatDate, isOverdue } from "@/lib/format";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
 import { isAdmin, canEditTask } from "@/lib/auth/rbac";
 import { NewTacheForm } from "./NewTacheForm";
+import { NewSousProjetForm } from "./NewSousProjetForm";
 import { TachesListe, type GroupeTaches } from "./TachesListe";
 import type { Tache } from "@/lib/airtable/taches";
 
@@ -107,7 +108,10 @@ export default async function TachesPage({
       </div>
 
       {isAdmin(user) && (
-        <NewTacheForm sousProjets={sousProjetsPourCreation} equipeProjetOptions={equipeProjetOptions} />
+        <div className="flex flex-wrap items-start gap-2">
+          <NewTacheForm sousProjets={sousProjetsPourCreation} equipeProjetOptions={equipeProjetOptions} />
+          <NewSousProjetForm sites={fullDossier.sites.map((s) => ({ id: s.id, nom: s.nom }))} />
+        </div>
       )}
 
       <form className="flex flex-wrap gap-2" action="/taches">
