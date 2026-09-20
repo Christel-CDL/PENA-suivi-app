@@ -4,10 +4,11 @@ import { useActionState, useState } from "react";
 import { createTacheAction, type FormState } from "./actions";
 import { TACHE_PRIORITES } from "@/lib/airtable/constants";
 import { ContactPicker } from "@/components/ContactPicker";
+import { SousProjetSelect, type SousProjetGroupe } from "@/components/SousProjetSelect";
 
 const initialState: FormState = { status: "idle" };
 
-type SousProjet = { id: string; nom: string };
+type SousProjet = SousProjetGroupe;
 type ContactOption = { id: string; label: string };
 
 export function NewTacheForm({
@@ -38,16 +39,7 @@ export function NewTacheForm({
 
         <label className="text-sm">
           <span className="mb-1 block text-slate-600">Sous-projet</span>
-          <select name="sousProjetId" required defaultValue="" className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm">
-            <option value="" disabled>
-              Choisir…
-            </option>
-            {sousProjets.map((sp) => (
-              <option key={sp.id} value={sp.id}>
-                {sp.nom}
-              </option>
-            ))}
-          </select>
+          <SousProjetSelect name="sousProjetId" sousProjets={sousProjets} />
         </label>
 
         <label className="text-sm">

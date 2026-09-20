@@ -77,6 +77,15 @@ export default async function TachesPage({
       : []),
   ];
 
+  // Pour créer une tâche, tous les sous-projets doivent être proposés (regroupés
+  // par site), quel que soit l'onglet de site actuellement affiché.
+  const sitesParId = new Map(fullDossier.sites.map((s) => [s.id, s.nom]));
+  const sousProjetsPourCreation = fullDossier.sousProjets.map((sp) => ({
+    id: sp.id,
+    nom: sp.nom,
+    siteNom: (sp.projetIds[0] && sitesParId.get(sp.projetIds[0])) || "Sans site",
+  }));
+
   const equipeProjetOptions = dossier.contacts
     .filter((c) => c.categories.includes("Équipe projet"))
     .map((c) => ({ id: c.id, label: c.organisation ? `${c.nom} (${c.organisation})` : c.nom }))
@@ -90,7 +99,7 @@ export default async function TachesPage({
       </div>
 
       {isAdmin(user) && (
-        <NewTacheForm sousProjets={dossier.sousProjets} equipeProjetOptions={equipeProjetOptions} />
+        <NewTacheForm sousProjets={sousProjetsPourCreation} equipeProjetOptions={equipeProjetOptions} />
       )}
 
       <form className="flex flex-wrap gap-2" action="/taches">

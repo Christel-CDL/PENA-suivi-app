@@ -48,10 +48,15 @@ export async function loadDossier(user: Utilisateur): Promise<Dossier> {
   const sites = scope === "all" ? allSites : allSites.filter((s) => scope.includes(s.id));
   const visibleSiteIds = new Set(sites.map((s) => s.id));
 
-  const sousProjets = allSousProjets.filter((sp) => sp.projetIds.some((id) => visibleSiteIds.has(id)));
+  // Pour l'Admin ("all"), rien ne doit disparaître même sans rattachement
+  // complet (sous-projet sans site, tâche sans sous-projet) : c'est un défaut de
+  // saisie à corriger, pas une raison de le masquer à la seule personne qui peut le réparer.
+  const sousProjets =
+    scope === "all" ? allSousProjets : allSousProjets.filter((sp) => sp.projetIds.some((id) => visibleSiteIds.has(id)));
   const visibleSousProjetIds = new Set(sousProjets.map((sp) => sp.id));
 
-  const taches = allTaches.filter((t) => t.sousProjetIds.some((id) => visibleSousProjetIds.has(id)));
+  const taches =
+    scope === "all" ? allTaches : allTaches.filter((t) => t.sousProjetIds.some((id) => visibleSousProjetIds.has(id)));
   const visibleTacheIds = new Set(taches.map((t) => t.id));
 
   const taskSiteIds = new Map<string, string[]>();

@@ -1,17 +1,24 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { validerEntreeAction, rejeterEntreeAction, type FormState } from "./actions";
 import type { EntreeAValider } from "@/lib/airtable/entrees-a-valider";
 import { formatDateTime } from "@/lib/format";
+import { TachePicker, type PickerData } from "@/components/TachePicker";
+import { SousProjetSelect } from "@/components/SousProjetSelect";
 
 const initialState: FormState = { status: "idle" };
 
-type Tache = { id: string; nom: string };
-
-export function EntreeCard({ entree, taches }: { entree: EntreeAValider; taches: Tache[] }) {
+export function EntreeCard({ entree, picker }: { entree: EntreeAValider; picker: PickerData }) {
   const [state, formAction, pending] = useActionState(validerEntreeAction, initialState);
   const [rejetState, rejetAction, rejetPending] = useActionState(rejeterEntreeAction, initialState);
+  const [mode, setMode] = useState<"existante" | "nouvelle">("existante");
+
+  const sousProjetsGroupes = picker.sousProjets.map((sp) => ({
+    id: sp.id,
+    nom: sp.nom,
+    siteNom: picker.sites.find((s) => s.id === sp.siteId)?.nom ?? "Sans site",
+  }));
 
   return (
     <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
@@ -21,26 +28,48 @@ export function EntreeCard({ entree, taches }: { entree: EntreeAValider; taches:
         </span>
       </div>
 
-      <form action={formAction} className="space-y-2">
+      <form action={formAction} className="space-y-3">
         <input type="hidden" name="id" value={entree.id} />
         <input type="hidden" name="expediteur" value={entree.expediteur} />
+        <input type="hidden" name="modeTache" value={mode} />
         <textarea
           name="resume"
           defaultValue={entree.resumePropose}
           rows={3}
           className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
         />
-        <label className="block text-sm">
-          <span className="mb-1 block text-slate-600">Tâche associée</span>
-          <select name="tacheId" defaultValue={entree.tacheSuggereeId ?? ""} className="w-full rounded-md border border-slate-300 px-3 py-1.5">
-            <option value="">Aucune</option>
-            {taches.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nom}
-              </option>
-            ))}
-          </select>
-        </label>
+
+        <div className="text-sm">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-slate-600">Tâche associée</span>
+            <button
+              type="button"
+              onClick={() => setMode(mode === "existante" ? "nouvelle" : "existante")}
+              className="text-xs text-slate-500 underline hover:text-slate-900"
+            >
+              {mode === "existante" ? "+ Créer une nouvelle tâche" : "Choisir une tâche existante"}
+            </button>
+          </div>
+
+          {mode === "existante" ? (
+            <TachePicker name="tacheId" data={picker} defaultId={entree.tacheSuggereeId} />
+          ) : (
+            <div className="grid gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 sm:grid-cols-2">
+              <input
+                name="nouvelleTacheNom"
+                required
+                placeholder="Nom de la nouvelle tâche"
+                className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm sm:col-span-2"
+              />
+              <SousProjetSelect name="nouvelleTacheSousProjetId" sousProjets={sousProjetsGroupes} />
+              <p className="self-center text-xs text-slate-500">
+                Créée à la validation (priorité Normale, statut « À faire ») ; responsable et échéance se complètent
+                ensuite sur sa fiche.
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-2">
           <button type="submit" disabled={pending} className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
             {pending ? "…" : "Valider et publier au journal"}
