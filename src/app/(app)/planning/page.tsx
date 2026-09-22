@@ -38,6 +38,17 @@ export default async function PlanningPage({
   const today = toISODate(new Date());
   const sitesById = new Map(dossier.sites.map((s) => [s.id, s.nom]));
 
+  // Code court affiché à la place du nom complet du site (demandé par Christel) :
+  // PM = PENA Métaux, PE = PENA Environnement, PL = PENA Logistic (Anjalby).
+  const CODES_SITE: Record<string, string> = {
+    "PENA METAUX": "PM",
+    "PENA ENVIRONNEMENT": "PE",
+    "PENA LOGISTIC": "PL",
+  };
+  function codeSite(nom: string) {
+    return CODES_SITE[nom] ?? nom;
+  }
+
   const sousProjetsParId = new Map(dossier.sousProjets.map((sp) => [sp.id, sp]));
   function siteDeLaTache(sousProjetIds: string[]) {
     const siteId = sousProjetsParId.get(sousProjetIds[0])?.projetIds[0];
@@ -51,7 +62,7 @@ export default async function PlanningPage({
 
   const parDate = new Map<
     string,
-    { sites: string[]; taches: { id: string; nom: string; statut: string; siteNom: string }[] }
+    { sites: string[]; taches: { id: string; nom: string; statut: string; siteCode: string }[] }
   >();
   function entryFor(date: string) {
     let e = parDate.get(date);
@@ -64,12 +75,18 @@ export default async function PlanningPage({
   for (const v of joursSurSite) {
     const e = entryFor(v.date);
     for (const id of v.siteIds) {
-      const nom = sitesById.get(id) ?? id;
-      if (!e.sites.includes(nom)) e.sites.push(nom);
+      const label = `CDL sur site ${codeSite(sitesById.get(id) ?? id)}`;
+      if (!e.sites.includes(label)) e.sites.push(label);
     }
   }
   for (const t of avecEcheance) {
-    entryFor(t.echeance!).taches.push({ id: t.id, nom: t.nom, statut: t.statut, siteNom: siteDeLaTache(t.sousProjetIds) });
+    const siteNom = siteDeLaTache(t.sousProjetIds);
+    entryFor(t.echeance!).taches.push({
+      id: t.id,
+      nom: t.nom,
+      statut: t.statut,
+      siteCode: siteNom ? codeSite(siteNom) : "",
+    });
   }
 
   // La plage affichée s'étend au moins SEMAINES_MIN au-delà d'aujourd'hui, et
