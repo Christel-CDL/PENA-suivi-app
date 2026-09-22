@@ -75,12 +75,13 @@ export function PlanningCalendrier({ jours }: { jours: JourCalendrier[] }) {
             <div
               key={g.key}
               style={{ width: g.count * LARGEUR_COL }}
-              className="shrink-0 overflow-hidden border-r border-slate-200 last:border-r-0"
+              className="shrink-0 border-r border-slate-200 last:border-r-0"
             >
               {/* left-0 collé au conteneur défilant : le libellé reste visible tant qu'une
                   partie du mois est à l'écran, plutôt que centré au milieu d'un mois
                   potentiellement bien plus large que la fenêtre visible (invisible en
-                  semaine de transition — signalé par Christel). */}
+                  semaine de transition — signalé par Christel). IMPORTANT : le parent ne
+                  doit surtout pas avoir overflow-hidden, ça désactive sticky sur l'enfant. */}
               <p className="sticky left-0 w-fit truncate px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
                 {g.label}
               </p>
