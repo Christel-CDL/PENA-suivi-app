@@ -75,9 +75,15 @@ export function PlanningCalendrier({ jours }: { jours: JourCalendrier[] }) {
             <div
               key={g.key}
               style={{ width: g.count * LARGEUR_COL }}
-              className="shrink-0 truncate border-r border-slate-200 px-2 py-1 text-center text-[11px] font-medium uppercase tracking-wide text-slate-500 last:border-r-0"
+              className="shrink-0 overflow-hidden border-r border-slate-200 last:border-r-0"
             >
-              {g.label}
+              {/* left-0 collé au conteneur défilant : le libellé reste visible tant qu'une
+                  partie du mois est à l'écran, plutôt que centré au milieu d'un mois
+                  potentiellement bien plus large que la fenêtre visible (invisible en
+                  semaine de transition — signalé par Christel). */}
+              <p className="sticky left-0 w-fit truncate px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                {g.label}
+              </p>
             </div>
           ))}
         </div>
@@ -107,8 +113,8 @@ export function PlanningCalendrier({ jours }: { jours: JourCalendrier[] }) {
                     className="block rounded-md border border-slate-200 px-1.5 py-1 text-[11px] leading-tight text-slate-700 hover:bg-slate-50"
                     title={t.nom}
                   >
-                    <span className="line-clamp-2">{t.nom}</span>
                     {t.siteCode && <span className="block font-medium text-slate-400">{t.siteCode}</span>}
+                    <span className="line-clamp-2">{t.nom}</span>
                     <span className="mt-0.5 block">
                       <StatusBadge value={t.statut} />
                     </span>
