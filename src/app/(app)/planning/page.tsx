@@ -38,12 +38,21 @@ export default async function PlanningPage({
   const today = toISODate(new Date());
   const sitesById = new Map(dossier.sites.map((s) => [s.id, s.nom]));
 
+  const sousProjetsParId = new Map(dossier.sousProjets.map((sp) => [sp.id, sp]));
+  function siteDeLaTache(sousProjetIds: string[]) {
+    const siteId = sousProjetsParId.get(sousProjetIds[0])?.projetIds[0];
+    return (siteId && sitesById.get(siteId)) || "";
+  }
+
   const avecEcheance = dossier.taches.filter((t) => t.echeance && t.echeance! >= today);
   // Jours de présence sur site, synchronisés depuis le calendrier Outlook de
   // Christel par le workflow n8n dédié (voir deploy/n8n-workflow-planning-calendrier.json).
   const joursSurSite = dossier.planningVisites.filter((v) => v.date >= today);
 
-  const parDate = new Map<string, { sites: string[]; taches: { id: string; nom: string; statut: string }[] }>();
+  const parDate = new Map<
+    string,
+    { sites: string[]; taches: { id: string; nom: string; statut: string; siteNom: string }[] }
+  >();
   function entryFor(date: string) {
     let e = parDate.get(date);
     if (!e) {
@@ -60,7 +69,7 @@ export default async function PlanningPage({
     }
   }
   for (const t of avecEcheance) {
-    entryFor(t.echeance!).taches.push({ id: t.id, nom: t.nom, statut: t.statut });
+    entryFor(t.echeance!).taches.push({ id: t.id, nom: t.nom, statut: t.statut, siteNom: siteDeLaTache(t.sousProjetIds) });
   }
 
   // La plage affichée s'étend au moins SEMAINES_MIN au-delà d'aujourd'hui, et

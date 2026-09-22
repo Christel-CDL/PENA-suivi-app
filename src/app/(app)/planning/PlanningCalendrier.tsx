@@ -12,7 +12,7 @@ export type JourCalendrier = {
   estAujourdhui: boolean;
   weekEnd: boolean;
   sites: string[];
-  taches: { id: string; nom: string; statut: string }[];
+  taches: { id: string; nom: string; statut: string; siteNom: string }[];
 };
 
 const LARGEUR_COL = 132; // px — garder synchronisé avec la classe w-[132px] ci-dessous
@@ -84,6 +84,7 @@ export function PlanningCalendrier({ jours }: { jours: JourCalendrier[] }) {
                   title={t.nom}
                 >
                   <span className="line-clamp-2">{t.nom}</span>
+                  {t.siteNom && <span className="block truncate text-slate-400">{t.siteNom}</span>}
                   <span className="mt-0.5 block">
                     <StatusBadge value={t.statut} />
                   </span>
