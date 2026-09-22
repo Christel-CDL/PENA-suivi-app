@@ -1,23 +1,29 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/session";
 import { loadDossier } from "@/lib/data/dossier";
 import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
-import { StatusBadge } from "@/components/StatusBadge";
-import { formatDate } from "@/lib/format";
-import type { Tache } from "@/lib/airtable/taches";
+import { PlanningCalendrier, type JourCalendrier } from "./PlanningCalendrier";
 
+const JOURS_SEMAINE = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 
-function moisKey(dateIso: string) {
-  const d = new Date(dateIso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const SEMAINES_MIN = 8; // fenêtre minimale affichée même sans rien de prévu
+const SEMAINES_MAX = 52; // plafond, pour ne pas générer une plage sans fin
+
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10);
 }
 
-type JourEntry = { date: string; sites: string[]; taches: Tache[] };
+/** Lundi de la semaine contenant `d` (ISO 8601 : la semaine commence le lundi). */
+function lundiDeLaSemaine(d: Date) {
+  const jourSemaineISO = (d.getDay() + 6) % 7; // 0 = lundi … 6 = dimanche
+  const lundi = new Date(d);
+  lundi.setDate(d.getDate() - jourSemaineISO);
+  return lundi;
+}
 
 export default async function PlanningPage({
   searchParams,
@@ -29,23 +35,19 @@ export default async function PlanningPage({
   const fullDossier = await loadDossier(user);
   const dossier = filterDossierBySite(fullDossier, site);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toISODate(new Date());
   const sitesById = new Map(dossier.sites.map((s) => [s.id, s.nom]));
 
   const avecEcheance = dossier.taches.filter((t) => t.echeance && t.echeance! >= today);
-
   // Jours de présence sur site, synchronisés depuis le calendrier Outlook de
   // Christel par le workflow n8n dédié (voir deploy/n8n-workflow-planning-calendrier.json).
   const joursSurSite = dossier.planningVisites.filter((v) => v.date >= today);
 
-  // Une seule liste triée par date : jours sur site et échéances de tâches
-  // apparaissent sur la même ligne quand ils tombent le même jour, plutôt que
-  // dans deux colonnes indépendantes difficiles à recaler visuellement.
-  const parDate = new Map<string, JourEntry>();
-  function entryFor(date: string): JourEntry {
+  const parDate = new Map<string, { sites: string[]; taches: { id: string; nom: string; statut: string }[] }>();
+  function entryFor(date: string) {
     let e = parDate.get(date);
     if (!e) {
-      e = { date, sites: [], taches: [] };
+      e = { sites: [], taches: [] };
       parDate.set(date, e);
     }
     return e;
@@ -58,72 +60,44 @@ export default async function PlanningPage({
     }
   }
   for (const t of avecEcheance) {
-    entryFor(t.echeance!).taches.push(t);
+    entryFor(t.echeance!).taches.push({ id: t.id, nom: t.nom, statut: t.statut });
   }
 
-  const parMois = new Map<string, JourEntry[]>();
-  for (const e of parDate.values()) {
-    const key = moisKey(e.date);
-    if (!parMois.has(key)) parMois.set(key, []);
-    parMois.get(key)!.push(e);
+  // La plage affichée s'étend au moins SEMAINES_MIN au-delà d'aujourd'hui, et
+  // jusqu'à la date la plus lointaine ayant un jour sur site ou une échéance,
+  // plafonnée à SEMAINES_MAX pour ne pas générer une plage sans fin.
+  const dateLaPlusLointaine = [...parDate.keys()].sort().at(-1);
+  const debut = lundiDeLaSemaine(new Date());
+  const nbSemaines = dateLaPlusLointaine
+    ? Math.min(SEMAINES_MAX, Math.max(SEMAINES_MIN, Math.ceil((+new Date(dateLaPlusLointaine) - +debut) / (7 * 86400000)) + 1))
+    : SEMAINES_MIN;
+
+  const jours: JourCalendrier[] = [];
+  for (let i = 0; i < nbSemaines * 7; i++) {
+    const d = new Date(debut);
+    d.setDate(debut.getDate() + i);
+    const iso = toISODate(d);
+    const entry = parDate.get(iso);
+    jours.push({
+      date: iso,
+      jour: JOURS_SEMAINE[(d.getDay() + 6) % 7],
+      numero: String(d.getDate()).padStart(2, "0"),
+      moisLabel: i === 0 || d.getDate() === 1 ? MOIS[d.getMonth()] : null,
+      estAujourdhui: iso === today,
+      weekEnd: d.getDay() === 0 || d.getDay() === 6,
+      sites: entry?.sites ?? [],
+      taches: entry?.taches ?? [],
+    });
   }
-  for (const entries of parMois.values()) entries.sort((a, b) => (a.date < b.date ? -1 : 1));
-  const moisTries = [...parMois.keys()].sort();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Planning</h1>
         <SiteFilterTabs sites={fullDossier.sites} />
       </div>
 
-      {moisTries.length === 0 && (
-        <p className="text-sm text-slate-500">Rien à afficher pour l&apos;instant.</p>
-      )}
-
-      {moisTries.map((key) => {
-        const [year, month] = key.split("-").map(Number);
-        return (
-          <section key={key}>
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">
-              {MOIS[month - 1]} {year}
-            </h2>
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-              <div className="grid grid-cols-[100px_1fr_2fr] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
-                <span>Date</span>
-                <span>Jours sur site</span>
-                <span>Échéances des tâches</span>
-              </div>
-              <div className="divide-y divide-slate-200">
-                {parMois.get(key)!.map((e) => (
-                  <div key={e.date} className="grid grid-cols-[100px_1fr_2fr] gap-2 p-3 text-sm">
-                    <span className="text-slate-800">{formatDate(e.date)}</span>
-                    <div className="flex flex-wrap items-start gap-1.5">
-                      {e.sites.map((nom) => (
-                        <span key={nom} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                          {nom}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap items-start gap-1.5">
-                      {e.taches.map((t) => (
-                        <Link
-                          key={t.id}
-                          href={`/taches/${t.id}`}
-                          className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          <StatusBadge value={t.statut} />
-                          {t.nom}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        );
-      })}
+      <PlanningCalendrier jours={jours} />
     </div>
   );
 }
