@@ -31,6 +31,9 @@ function mapVisite(r: { id: string; fields: RawFields }): VisitePlanning {
 export async function listPlanningVisites(): Promise<VisitePlanning[]> {
   const records = await listRecords<RawFields>(TABLES.PLANNING_VISITES, {
     sort: [{ field: F.DATE, direction: "asc" }],
+    // Table écrite par n8n seulement : sans cache, sinon un jour déplacé dans
+    // Outlook pouvait rester affiché à l'ancienne date pendant des jours.
+    sansCache: true,
   });
   return records.map(mapVisite);
 }

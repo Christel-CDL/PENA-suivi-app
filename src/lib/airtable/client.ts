@@ -33,6 +33,13 @@ type ListParams = {
   sort?: { field: string; direction?: "asc" | "desc" }[];
   fields?: string[];
   maxRecords?: number;
+  /**
+   * Relit Airtable à chaque requête, sans cache. Pour les tables écrites
+   * uniquement hors de l'app (n8n) : aucune écriture de l'app n'appelle
+   * updateTag() pour elles, et le cache de Next sert d'abord la copie périmée
+   * après expiration — copie qui pouvait dater de plusieurs jours.
+   */
+  sansCache?: boolean;
 };
 
 async function airtableFetch(path: string, init: RequestInit & { next?: { revalidate?: number; tags?: string[] } }) {
@@ -79,7 +86,9 @@ export async function listRecords<TFields extends Record<string, AirtableFieldVa
 
     const data = await airtableFetch(`${BASE_ID}/${tableId}?${search.toString()}`, {
       method: "GET",
-      next: { revalidate: CACHE_SECONDS, tags: [airtableTag(tableId)] },
+      ...(params.sansCache
+        ? { cache: "no-store" as const }
+        : { next: { revalidate: CACHE_SECONDS, tags: [airtableTag(tableId)] } }),
     });
     records.push(...(data.records as AirtableRecord<TFields>[]));
     offset = data.offset;
