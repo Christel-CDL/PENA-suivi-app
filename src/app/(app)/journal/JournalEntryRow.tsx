@@ -60,6 +60,11 @@ export function JournalEntryRow({
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
         <span>{formatDateTime(entry.date)}</span>
         <span>{entry.origine}</span>
+        {/^https?:\/\//.test(entry.lienDocument) && (
+          <a href={entry.lienDocument} target="_blank" rel="noopener noreferrer" className="text-slate-500 underline hover:text-slate-900">
+            Document
+          </a>
+        )}
         {tache && (
           <Link href={`/taches/${tache.id}`} className="text-slate-500 underline hover:text-slate-900">
             {tache.nom}

@@ -11,6 +11,9 @@ export type JournalEntry = {
   documentIds: string[];
   suites: string;
   origine: string;
+  participantIds: string[];
+  /** Lien vers un document (OneDrive, rapport de constat) — aucun fichier n'est stocké. */
+  lienDocument: string;
 };
 
 type RawFields = {
@@ -21,6 +24,9 @@ type RawFields = {
   [F.DOCUMENT_ASSOCIE]?: string[];
   [F.SUITES]?: string;
   [F.ORIGINE]?: string;
+  [F.PARTICIPANTS]?: string[];
+  [F.LIEN_DOCUMENT]?: string;
+  [F.ID_MESSAGE_SOURCE]?: string;
 };
 
 function mapEntry(r: { id: string; fields: RawFields }): JournalEntry {
@@ -33,6 +39,8 @@ function mapEntry(r: { id: string; fields: RawFields }): JournalEntry {
     documentIds: r.fields[F.DOCUMENT_ASSOCIE] ?? [],
     suites: r.fields[F.SUITES] ?? "",
     origine: r.fields[F.ORIGINE] ?? "",
+    participantIds: r.fields[F.PARTICIPANTS] ?? [],
+    lienDocument: r.fields[F.LIEN_DOCUMENT] ?? "",
   };
 }
 
@@ -52,15 +60,24 @@ export async function createJournalEntry(input: {
   tacheIds: string[];
   contactIds: string[];
   origine: string;
+  /** ISO 8601 ; par défaut, maintenant. */
+  date?: string;
+  participantIds?: string[];
+  lienDocument?: string;
+  /** internetMessageId de l'e-mail d'origine (dédoublonnage n8n). */
+  idMessageSource?: string;
 }) {
   const [record] = await createRecords<RawFields>(TABLES.JOURNAL, [
     {
       fields: {
         [F.DESCRIPTION]: input.description,
-        [F.DATE]: new Date().toISOString(),
+        [F.DATE]: input.date || new Date().toISOString(),
         [F.TACHE_ASSOCIEE]: input.tacheIds,
         [F.CONTACT_ASSOCIE]: input.contactIds,
         [F.ORIGINE]: input.origine,
+        ...(input.participantIds?.length ? { [F.PARTICIPANTS]: input.participantIds } : {}),
+        ...(input.lienDocument ? { [F.LIEN_DOCUMENT]: input.lienDocument } : {}),
+        ...(input.idMessageSource ? { [F.ID_MESSAGE_SOURCE]: input.idMessageSource } : {}),
       },
     },
   ]);

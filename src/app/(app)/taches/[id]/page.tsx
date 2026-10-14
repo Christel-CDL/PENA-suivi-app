@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getTache } from "@/lib/airtable/taches";
@@ -118,6 +119,16 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           <p className="whitespace-pre-wrap">{tache.description || "Aucune description."}</p>
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Link
+          href={`/compte-rendu?tache=${tache.id}`}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          + Compte-rendu / action sur ce sujet
+        </Link>
+        <span className="text-sm text-slate-500">ou un simple commentaire ci-dessous</span>
+      </div>
 
       <CommentForm tacheId={tache.id} />
 
