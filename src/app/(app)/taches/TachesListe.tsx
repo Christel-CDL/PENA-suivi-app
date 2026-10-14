@@ -14,14 +14,28 @@ export type LigneTache = {
   statut: string;
   responsables: string;
   prestataire: string;
+  /** Vide si aucune échéance. */
   echeanceLabel: string;
   enRetard: boolean;
+  prochaineEtape: string;
+  balleChez: string;
+  prochainPointLabel: string;
+  pointDepasse: boolean;
   /** Case cochable : Admin partout, Contributeur seulement sur ses propres tâches. */
   selectable: boolean;
   siteId: string | null;
 };
 
-export type GroupeTaches = { id: string; nom: string; taches: LigneTache[] };
+export type GroupeTaches = {
+  id: string;
+  nom: string;
+  /** Volet de veille : affiché en dernier, replié par défaut. */
+  enVeille: boolean;
+  /** Compteurs sur tout le volet, indépendamment des filtres d'affichage. */
+  nbOuverts: number;
+  nbClos: number;
+  taches: LigneTache[];
+};
 
 const CONTROLE = "rounded-md border border-slate-300 bg-white px-2 py-1 text-sm";
 
@@ -39,6 +53,10 @@ export function TachesListe({
   const [regrouper, setRegrouper] = useState(false);
   const [coches, setCoches] = useState<Set<string>>(new Set());
   const [resultat, setResultat] = useState<BulkResult | null>(null);
+  // Sections repliées : au départ, seulement les volets de veille.
+  const [replies, setReplies] = useState<Set<string>>(
+    () => new Set(groupes.filter((g) => g.enVeille).map((g) => g.id)),
+  );
   const [pending, startTransition] = useTransition();
 
   // La liste se rafraîchit toute seule (filtres, AutoRefresh) : on ne garde de
@@ -209,10 +227,11 @@ export function TachesListe({
       {groupes.map((groupe) => {
         const cochables = groupe.taches.filter((t) => t.selectable);
         const toutCoche = cochables.length > 0 && cochables.every((t) => selectionSet.has(t.id));
+        const replie = replies.has(groupe.id);
         return (
           <section key={groupe.id}>
             <div className="mb-2 flex items-center gap-2">
-              {cochables.length > 0 && (
+              {cochables.length > 0 && !replie && (
                 <input
                   type="checkbox"
                   checked={toutCoche}
@@ -221,10 +240,36 @@ export function TachesListe({
                 />
               )}
               <h2 className="text-lg font-semibold text-slate-800">
-                {groupe.nom} <span className="text-sm font-normal text-slate-400">({groupe.taches.length})</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReplies((prev) => {
+                      const suivant = new Set(prev);
+                      if (suivant.has(groupe.id)) suivant.delete(groupe.id);
+                      else suivant.add(groupe.id);
+                      return suivant;
+                    })
+                  }
+                  aria-expanded={!replie}
+                  className="flex items-center gap-2 text-left hover:text-slate-950"
+                >
+                  <span className="inline-block w-4 text-slate-400">{replie ? "▸" : "▾"}</span>
+                  {groupe.nom}
+                  <span className="text-sm font-normal text-slate-500">
+                    {groupe.nbOuverts} ouvert{groupe.nbOuverts > 1 ? "s" : ""} · {groupe.nbClos} terminé
+                    {groupe.nbClos > 1 ? "s" : ""}
+                  </span>
+                  {groupe.enVeille && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">en veille</span>
+                  )}
+                </button>
               </h2>
             </div>
+            {!replie && (
             <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+              {groupe.taches.length === 0 && (
+                <p className="p-4 text-sm text-slate-400">Aucun sujet ouvert dans ce volet.</p>
+              )}
               {groupe.taches.map((t) => (
                 <div key={t.id} className="flex items-start gap-3 p-4 hover:bg-slate-50">
                   <input
@@ -239,19 +284,32 @@ export function TachesListe({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium text-slate-900">{t.nom}</p>
                       <div className="flex items-center gap-2">
+                        {t.balleChez && <StatusBadge value={t.balleChez} />}
                         <StatusBadge value={t.priorite} />
                         <StatusBadge value={t.statut} />
                       </div>
                     </div>
+                    {t.prochaineEtape && (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                        <span className="text-slate-400">Prochaine étape : </span>
+                        {t.prochaineEtape}
+                      </p>
+                    )}
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
+                      <span className={t.pointDepasse ? "font-medium text-red-600" : ""}>
+                        Prochain point : {t.prochainPointLabel}
+                      </span>
                       {t.responsables && <span>Responsable : {t.responsables}</span>}
                       {t.prestataire && <span>Prestataire : {t.prestataire}</span>}
-                      <span className={t.enRetard ? "font-medium text-red-600" : ""}>Échéance : {t.echeanceLabel}</span>
+                      {t.echeanceLabel && (
+                        <span className={t.enRetard ? "font-medium text-red-600" : ""}>Échéance : {t.echeanceLabel}</span>
+                      )}
                     </div>
                   </Link>
                 </div>
               ))}
             </div>
+            )}
           </section>
         );
       })}

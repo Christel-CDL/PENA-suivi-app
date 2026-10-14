@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { loadDossier } from "@/lib/data/dossier";
 import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
-import { formatDate, isOverdue } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { aujourdhui, estOuvert, pointDepasse } from "@/lib/pilotage";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
 import { isAdmin, canEditTask } from "@/lib/auth/rbac";
 import { NewTacheForm } from "./NewTacheForm";
@@ -14,51 +15,84 @@ import type { Tache } from "@/lib/airtable/taches";
 export default async function TachesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ site?: string; statut?: string; q?: string; priorite?: string; echeance?: string }>;
+  searchParams: Promise<{
+    site?: string;
+    statut?: string;
+    q?: string;
+    priorite?: string;
+    echeance?: string;
+    termines?: string;
+  }>;
 }) {
   const user = (await getCurrentUser())!;
-  const { site, statut, q, priorite, echeance } = await searchParams;
+  const { site, statut, q, priorite, echeance, termines } = await searchParams;
   const fullDossier = await loadDossier(user);
   const dossier = filterDossierBySite(fullDossier, site);
 
   const contactsById = new Map(dossier.contacts.map((c) => [c.id, c]));
   const query = (q ?? "").trim().toLowerCase();
   const priorites = priorite ? priorite.split(",") : null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = aujourdhui();
 
-  // Par défaut (aucun statut choisi), les tâches terminées ou annulées sont
-  // masquées ; on les retrouve avec le filtre de statut ("Tous" ou un statut précis).
-  const masquerCloturees = !statut;
+  // Par défaut, les sujets terminés ou annulés sont masqués ; on les retrouve
+  // avec la case « Afficher les terminés » ou en choisissant ce statut précis.
+  // (« statut=tous » : ancien lien, toujours accepté.)
+  const afficherClos = termines === "1" || statut === "tous";
+  const statutPrecis = statut && statut !== "tous" ? statut : null;
+  const masquerClos = !afficherClos && !statutPrecis;
+  const filtreActif = Boolean(query || priorites || echeance || statutPrecis);
   let masquees = 0;
 
   const taches = dossier.taches.filter((t) => {
-    if (statut && statut !== "tous" && t.statut !== statut) return false;
+    if (statutPrecis && t.statut !== statutPrecis) return false;
     if (priorites && !priorites.includes(t.priorite)) return false;
     if (echeance === "depassee") {
-      if (!t.echeance || t.echeance >= today || t.statut === "Terminé" || t.statut === "Annulée") return false;
+      if (!t.echeance || t.echeance >= today || !estOuvert(t.statut)) return false;
     }
     if (query && !t.nom.toLowerCase().includes(query)) return false;
-    if (masquerCloturees && (t.statut === "Terminé" || t.statut === "Annulée")) {
+    if (masquerClos && !estOuvert(t.statut)) {
       masquees++;
       return false;
     }
     return true;
   });
 
-  // Regroupement par sous-projet, dans l'ordre où les sous-projets apparaissent
-  // dans le dossier ; les tâches sans sous-projet associé arrivent en dernier.
-  const tachesBySousProjet = new Map<string, Tache[]>();
+  // Regroupement par volet (sous-projet). Le site vient de « Projet associé »
+  // du volet ; le préfixe PM / PE du nom ne sert qu'à l'affichage.
+  const tachesParVolet = new Map<string, Tache[]>();
   for (const t of taches) {
     const key = t.sousProjetIds[0] ?? "_sans";
-    if (!tachesBySousProjet.has(key)) tachesBySousProjet.set(key, []);
-    tachesBySousProjet.get(key)!.push(t);
+    if (!tachesParVolet.has(key)) tachesParVolet.set(key, []);
+    tachesParVolet.get(key)!.push(t);
   }
+  const compteurs = new Map<string, { ouverts: number; clos: number }>();
+  for (const t of dossier.taches) {
+    const key = t.sousProjetIds[0] ?? "_sans";
+    const c = compteurs.get(key) ?? { ouverts: 0, clos: 0 };
+    if (estOuvert(t.statut)) c.ouverts++;
+    else c.clos++;
+    compteurs.set(key, c);
+  }
+
+  const sitesParId = new Map(fullDossier.sites.map((s) => [s.id, s.nom]));
+  const siteNomDuVolet = (sp: { projetIds: string[] }) => (sp.projetIds[0] && sitesParId.get(sp.projetIds[0])) || "~";
+  // Un volet « En attente » est un volet de veille : affiché en dernier, replié.
+  const enVeille = (sp: { statut: string }) => sp.statut === "En attente";
+
+  const volets = [...dossier.sousProjets].sort(
+    (a, b) =>
+      Number(enVeille(a)) - Number(enVeille(b)) ||
+      siteNomDuVolet(a).localeCompare(siteNomDuVolet(b)) ||
+      a.nom.localeCompare(b.nom),
+  );
   const groupes = [
-    ...dossier.sousProjets
-      .filter((sp) => tachesBySousProjet.has(sp.id))
-      .map((sp) => ({ id: sp.id, nom: sp.nom, taches: tachesBySousProjet.get(sp.id)! })),
-    ...(tachesBySousProjet.has("_sans")
-      ? [{ id: "_sans", nom: "Sans sous-projet", taches: tachesBySousProjet.get("_sans")! }]
+    // Sans filtre de recherche, tous les volets apparaissent (même sans sujet ouvert),
+    // pour que les compteurs donnent une vue complète du dossier.
+    ...volets
+      .filter((sp) => tachesParVolet.has(sp.id) || !filtreActif)
+      .map((sp) => ({ id: sp.id, nom: sp.nom, enVeille: enVeille(sp), taches: tachesParVolet.get(sp.id) ?? [] })),
+    ...(tachesParVolet.has("_sans")
+      ? [{ id: "_sans", nom: "Sans volet", enVeille: false, taches: tachesParVolet.get("_sans")! }]
       : []),
   ];
 
@@ -68,6 +102,9 @@ export default async function TachesPage({
   const groupesAffiches: GroupeTaches[] = groupes.map((g) => ({
     id: g.id,
     nom: g.nom,
+    enVeille: g.enVeille,
+    nbOuverts: compteurs.get(g.id)?.ouverts ?? 0,
+    nbClos: compteurs.get(g.id)?.clos ?? 0,
     taches: g.taches.map((t) => {
       const responsables = t.responsableContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
       const prestataires = t.prestataireContactIds.map((id) => contactsById.get(id)?.nom).filter(Boolean);
@@ -78,8 +115,12 @@ export default async function TachesPage({
         statut: t.statut,
         responsables: responsables.join(", "),
         prestataire: prestataires.length > 0 ? prestataires.join(", ") : t.prestataireAncienTexte,
-        echeanceLabel: formatDate(t.echeance),
-        enRetard: isOverdue(t.echeance) && t.statut !== "Terminé",
+        echeanceLabel: t.echeance ? formatDate(t.echeance) : "",
+        enRetard: Boolean(t.echeance) && t.echeance! < today && estOuvert(t.statut),
+        prochaineEtape: t.prochaineEtape,
+        balleChez: t.balleChez,
+        prochainPointLabel: formatDate(t.prochainPoint),
+        pointDepasse: pointDepasse(t.statut, t.prochainPoint),
         selectable: canEditTask(user, t),
         siteId: (sousProjetsParId.get(t.sousProjetIds[0])?.projetIds[0]) ?? null,
       };
@@ -88,7 +129,6 @@ export default async function TachesPage({
 
   // Pour créer une tâche, tous les sous-projets doivent être proposés (regroupés
   // par site), quel que soit l'onglet de site actuellement affiché.
-  const sitesParId = new Map(fullDossier.sites.map((s) => [s.id, s.nom]));
   const sousProjetsPourCreation = fullDossier.sousProjets.map((sp) => ({
     id: sp.id,
     nom: sp.nom,
@@ -123,15 +163,23 @@ export default async function TachesPage({
           placeholder="Rechercher une tâche…"
           className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
         />
-        <select name="statut" defaultValue={statut ?? ""} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
-          <option value="">Tâches en cours de suivi</option>
-          <option value="tous">Tous les statuts (y compris terminées et annulées)</option>
+        <select
+          name="statut"
+          defaultValue={statutPrecis ?? ""}
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          aria-label="Statut"
+        >
+          <option value="">Tous les statuts</option>
           {TACHE_STATUTS.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-sm text-slate-600">
+          <input type="checkbox" name="termines" value="1" defaultChecked={afficherClos} />
+          Afficher les terminés
+        </label>
         <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">
           Filtrer
         </button>
@@ -150,12 +198,12 @@ export default async function TachesPage({
 
       {masquees > 0 && (
         <p className="text-sm text-slate-500">
-          {masquees} tâche{masquees > 1 ? "s" : ""} terminée{masquees > 1 ? "s" : ""} ou annulée{masquees > 1 ? "s" : ""}{" "}
-          masquée{masquees > 1 ? "s" : ""} — choisissez « Tous les statuts » dans le filtre pour les afficher.
+          {masquees} sujet{masquees > 1 ? "s" : ""} terminé{masquees > 1 ? "s" : ""} ou annulé{masquees > 1 ? "s" : ""}{" "}
+          masqué{masquees > 1 ? "s" : ""} — cochez « Afficher les terminés » pour {masquees > 1 ? "les" : "le"} voir.
         </p>
       )}
 
-      {taches.length === 0 && (
+      {taches.length === 0 && filtreActif && (
         <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">
           Aucune tâche ne correspond.
         </p>
