@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { suiteValide } from "@/lib/auth/suite";
 
 const SESSION_COOKIE = "pena_session";
 
@@ -27,6 +28,11 @@ export async function proxy(request: NextRequest) {
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
+    // Connecteur Claude : ces points ont leur propre protection (jeton OAuth,
+    // PKCE, adresses de retour limitées à Claude) et ne passent pas par un cookie.
+    pathname.startsWith("/api/mcp") ||
+    pathname.startsWith("/api/oauth/") ||
+    pathname.startsWith("/.well-known/") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico";
 
@@ -37,13 +43,17 @@ export async function proxy(request: NextRequest) {
   // domaine public.
   const baseUrl = process.env.APP_URL || "http://localhost:3000";
 
+  // Page d'autorisation du connecteur Claude : après connexion, on doit y revenir avec tous ses paramètres.
+  const suite = suiteValide(`${pathname}${request.nextUrl.search}`);
+
   if (!authenticated && !isPublic) {
     const loginUrl = new URL("/login", baseUrl);
+    if (suite) loginUrl.searchParams.set("suite", suite);
     return NextResponse.redirect(loginUrl);
   }
 
   if (authenticated && pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/", baseUrl));
+    return NextResponse.redirect(new URL(suiteValide(request.nextUrl.searchParams.get("suite")) ?? "/", baseUrl));
   }
 
   return NextResponse.next();

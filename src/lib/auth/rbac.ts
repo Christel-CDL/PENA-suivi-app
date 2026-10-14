@@ -59,6 +59,17 @@ export function canCreateDirectly(user: Utilisateur): boolean {
   return isAdmin(user);
 }
 
+/**
+ * Connecteur MCP « Suivi PENA » pour Claude : réservé à l'Admin pour l'instant
+ * (décision de Christel du 14/10/2026 — pas de données PENA dans le compte Claude
+ * d'un tiers sans accord de PENA). Pour l'ouvrir aux Contributeurs, il suffira de
+ * renvoyer `true` pour tout utilisateur Actif : les outils appliquent déjà le
+ * périmètre de site via loadDossier.
+ */
+export function canUseConnector(user: Utilisateur): boolean {
+  return isAdmin(user);
+}
+
 export function assertAdmin(user: Utilisateur | null): asserts user is Utilisateur {
   if (!user || !isAdmin(user)) {
     throw new Error("Action réservée à l'administrateur.");

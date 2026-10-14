@@ -36,6 +36,22 @@ Bouton **« + Compte-rendu / action »** en haut de chaque page, ou **« + Compt
 
 Les Contributeurs peuvent aussi saisir un compte-rendu sur tout sujet de leurs sites ; la case « Mettre à jour le sujet » ne leur est proposée que sur les sujets dont ils sont responsables. Celui qui saisit est enregistré comme auteur (champ « Contact associé ») ; les présents vont dans le champ « Participants ».
 
+## C. Interroger le suivi depuis Claude (connecteur « Suivi PENA »)
+
+Claude peut consulter le suivi **en votre nom, avec exactement vos droits**, sans copier-coller. Pour l'instant : **lecture seule**, et **réservé au compte Admin** (vous). Rien ne peut être modifié par Claude.
+
+**Brancher le connecteur (une seule fois)** :
+1. Dans Claude (web ou application) : **Paramètres → Connecteurs → Ajouter un connecteur personnalisé**.
+2. Nom : `Suivi PENA` ; adresse : `https://suivi-pena.srv1102696.hstgr.cloud/api/mcp` ; laissez les champs OAuth avancés vides.
+3. Cliquez sur **Se connecter** : la page de l'application s'ouvre. Si vous n'êtes pas connectée, demandez le lien magique ; après le clic sur le lien, vous revenez automatiquement à la page « Autoriser Claude ? ».
+4. Cliquez sur **Autoriser**. C'est fait : la connexion est renouvelée automatiquement (l'accès est revérifié dans Airtable à chaque question).
+
+**Exemples de questions** : « Qu'est-ce qui est à moi cette semaine ? », « Qu'est-ce qui est en retard sur PE ? », « Où en est le volet Eaux pluviales ? », « Résume-moi l'historique du sujet SOLREM », « Trouve tout ce qui parle de voirie ».
+
+**Retirer l'accès** : supprimez le connecteur dans les paramètres de Claude ; passer un compte en « Suspendu » dans UTILISATEURS coupe aussi l'accès immédiatement.
+
+**Confidentialité** : ce que Claude lit apparaît dans vos conversations Claude. Le connecteur n'est pas ouvert aux Contributeurs (décision du 14/10/2026, en attente de l'accord de PENA) ; l'ouvrir est une modification d'une ligne à demander à Claude.
+
 ## 1. Gérer les utilisateurs
 
 Les comptes se gèrent directement dans Airtable, dans la base **Suivi ICPE Environnement**, table **UTILISATEURS**. Il n'y a pas d'écran dédié dans l'application — c'est volontaire, pour garder un seul endroit où gérer les accès.

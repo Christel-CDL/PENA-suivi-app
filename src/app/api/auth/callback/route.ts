@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMagicLinkToken } from "@/lib/auth/magic-link";
 import { createSessionCookie } from "@/lib/auth/session";
 import { findUtilisateurByEmail } from "@/lib/airtable/users";
+import { suiteValide } from "@/lib/auth/suite";
 
 export async function GET(request: NextRequest) {
   // Construit les URL de redirection à partir d'APP_URL plutôt que de
@@ -31,5 +32,7 @@ export async function GET(request: NextRequest) {
   }
 
   await createSessionCookie(user.email);
-  return NextResponse.redirect(new URL("/", baseUrl));
+  // Retour à la page d'autorisation du connecteur Claude si la connexion venait de là.
+  const suite = suiteValide(request.nextUrl.searchParams.get("suite"));
+  return NextResponse.redirect(new URL(suite ?? "/", baseUrl));
 }

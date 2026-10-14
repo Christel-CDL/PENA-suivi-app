@@ -3,6 +3,7 @@
 import { findUtilisateurByEmail } from "@/lib/airtable/users";
 import { createMagicLinkToken } from "@/lib/auth/magic-link";
 import { sendMagicLinkEmail } from "@/lib/auth/mailer";
+import { suiteValide } from "@/lib/auth/suite";
 
 export type RequestLinkState = { status: "idle" | "sent" | "error"; message?: string };
 
@@ -25,7 +26,10 @@ export async function requestMagicLink(
     if (user) {
       const token = await createMagicLinkToken(user.email);
       const baseUrl = process.env.APP_URL || "http://localhost:3000";
-      const loginUrl = `${baseUrl}/api/auth/callback?token=${encodeURIComponent(token)}`;
+      const suite = suiteValide(String(formData.get("suite") ?? ""));
+      const loginUrl =
+        `${baseUrl}/api/auth/callback?token=${encodeURIComponent(token)}` +
+        (suite ? `&suite=${encodeURIComponent(suite)}` : "");
       await sendMagicLinkEmail(user.email, loginUrl);
     }
   } catch (err) {
