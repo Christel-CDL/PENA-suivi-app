@@ -6,6 +6,7 @@ import type { EntreeAValider } from "@/lib/airtable/entrees-a-valider";
 import { formatDateTime } from "@/lib/format";
 import { TachePicker, type PickerData } from "@/components/TachePicker";
 import { SousProjetSelect } from "@/components/SousProjetSelect";
+import { PilotageFields } from "@/components/PilotageFields";
 
 const initialState: FormState = { status: "idle" };
 
@@ -66,6 +67,9 @@ export function EntreeCard({ entree, picker }: { entree: EntreeAValider; picker:
                 Créée à la validation (priorité Normale, statut « À faire ») ; responsable et échéance se complètent
                 ensuite sur sa fiche.
               </p>
+              <div className="sm:col-span-2">
+                <PilotageFields />
+              </div>
             </div>
           )}
         </div>

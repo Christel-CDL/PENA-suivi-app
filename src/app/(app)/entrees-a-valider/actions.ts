@@ -6,6 +6,7 @@ import { assertAdmin } from "@/lib/auth/rbac";
 import { validerEntree, rejeterEntree } from "@/lib/airtable/entrees-a-valider";
 import { listContacts } from "@/lib/airtable/contacts";
 import { createTache } from "@/lib/airtable/taches";
+import { lirePilotage, champsManquants, messageChampsManquants } from "@/lib/pilotage";
 
 export type FormState = { status: "idle" | "success" | "error"; message?: string };
 
@@ -30,7 +31,10 @@ export async function validerEntreeAction(_prev: FormState, formData: FormData):
     const sousProjetId = String(formData.get("nouvelleTacheSousProjetId") ?? "");
     if (!nom) return { status: "error", message: "Le nom de la nouvelle tâche est obligatoire." };
     if (!sousProjetId) return { status: "error", message: "Choisissez le sous-projet de la nouvelle tâche." };
-    const tache = await createTache({ nom, sousProjetIds: [sousProjetId], priorite: "Normale" });
+    const pilotage = lirePilotage(formData);
+    const manquants = champsManquants("À faire", pilotage);
+    if (manquants.length > 0) return { status: "error", message: messageChampsManquants(manquants) };
+    const tache = await createTache({ nom, sousProjetIds: [sousProjetId], priorite: "Normale", pilotage });
     tacheId = tache.id;
   }
 

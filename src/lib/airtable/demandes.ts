@@ -3,6 +3,7 @@ import { listRecords, createRecords, updateRecords } from "./client";
 import { TABLES, DEMANDES_FIELDS as F } from "./constants";
 import { createSousProjet } from "./sous-projets";
 import { createTache } from "./taches";
+import type { Pilotage } from "@/lib/pilotage";
 
 export type Demande = {
   id: string;
@@ -80,7 +81,7 @@ export async function creerDemande(input: {
  * Acceptation par l'Admin : crée réellement le sous-projet ou la tâche, lie
  * l'élément créé à la demande, et passe son statut à "Acceptée".
  */
-export async function accepterDemande(demande: Demande) {
+export async function accepterDemande(demande: Demande, pilotage: Pilotage) {
   if (demande.type === "Nouveau sous-projet") {
     const created = await createSousProjet({
       nom: demande.titrePropose,
@@ -97,6 +98,7 @@ export async function accepterDemande(demande: Demande) {
     nom: demande.titrePropose,
     sousProjetIds: demande.sousProjetParentIds,
     description: demande.description,
+    pilotage,
   });
   await updateRecords<RawFields>(TABLES.DEMANDES, [
     { id: demande.id, fields: { [F.STATUT]: "Acceptée", [F.TACHE_CREEE]: [created.id] } },

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateTacheAction, type FormState } from "./actions";
 import { TACHE_STATUTS, TACHE_PRIORITES } from "@/lib/airtable/constants";
 import type { Tache } from "@/lib/airtable/taches";
+import { PilotageFields } from "@/components/PilotageFields";
 
 const initialState: FormState = { status: "idle" };
 
@@ -13,6 +14,10 @@ export function TaskEditForm({ tache }: { tache: Tache }) {
   return (
     <form action={formAction} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
       <input type="hidden" name="id" value={tache.id} />
+
+      {/* Pas de `required` navigateur : un sujet qu'on passe à « Terminé » n'en a pas
+          besoin. Le contrôle (sujet ouvert ⇒ 3 champs remplis) est fait côté serveur. */}
+      <PilotageFields valeurs={tache} requis={false} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm">

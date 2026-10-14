@@ -17,6 +17,11 @@ const COLORS: Record<string, string> = {
   "À valider": "bg-amber-100 text-amber-800",
   "Validée": "bg-emerald-100 text-emerald-700",
   "Rejetée": "bg-red-100 text-red-700",
+  // Balle chez (pilotage v2)
+  "Christel": "bg-violet-100 text-violet-800",
+  "PENA": "bg-sky-100 text-sky-800",
+  "Prestataire": "bg-teal-100 text-teal-800",
+  "Administration": "bg-rose-100 text-rose-800",
 };
 
 export function StatusBadge({ value }: { value: string }) {

@@ -4,6 +4,7 @@ import { getTache } from "@/lib/airtable/taches";
 import { loadDossier } from "@/lib/data/dossier";
 import { canEditTask, canAccessSites, canEditJournalEntry, isAdmin } from "@/lib/auth/rbac";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PilotageBandeau } from "@/components/PilotageBandeau";
 import { formatDate } from "@/lib/format";
 import { TaskEditForm } from "./TaskEditForm";
 import { CommentForm } from "./CommentForm";
@@ -68,6 +69,9 @@ export default async function TacheDetailPage({ params }: { params: Promise<{ id
           <h1 className="text-xl font-semibold text-slate-900">{tache.nom}</h1>
           <StatusBadge value={tache.statut} />
           <StatusBadge value={tache.priorite} />
+        </div>
+        <div className="my-3">
+          <PilotageBandeau tache={tache} />
         </div>
         <ResponsableField
           key={`resp-${JSON.stringify(tache.responsableContactIds)}`}

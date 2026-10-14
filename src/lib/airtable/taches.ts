@@ -10,8 +10,9 @@ export type Tache = {
   echeance: string | null;
   journalIds: string[];
   description: string;
-  prochaineRelance: string | null;
-  derniereRelance: string | null;
+  prochaineEtape: string;
+  balleChez: string;
+  prochainPoint: string | null;
   priorite: string;
   responsableContactIds: string[];
   partiesPrenantesIds: string[];
@@ -27,8 +28,9 @@ type RawFields = {
   [F.ECHEANCE]?: string;
   [F.JOURNAL]?: string[];
   [F.DESCRIPTION_OBJECTIFS]?: string;
-  [F.PROCHAINE_RELANCE]?: string;
-  [F.DERNIERE_RELANCE]?: string;
+  [F.PROCHAINE_ETAPE]?: string;
+  [F.BALLE_CHEZ]?: string;
+  [F.PROCHAIN_POINT]?: string;
   [F.PRIORITE]?: string;
   [F.RESPONSABLE_LIEN]?: string[];
   [F.PARTIES_PRENANTES]?: string[];
@@ -45,8 +47,9 @@ function mapTache(r: { id: string; fields: RawFields }): Tache {
     echeance: r.fields[F.ECHEANCE] ?? null,
     journalIds: r.fields[F.JOURNAL] ?? [],
     description: r.fields[F.DESCRIPTION_OBJECTIFS] ?? "",
-    prochaineRelance: r.fields[F.PROCHAINE_RELANCE] ?? null,
-    derniereRelance: r.fields[F.DERNIERE_RELANCE] ?? null,
+    prochaineEtape: r.fields[F.PROCHAINE_ETAPE] ?? "",
+    balleChez: r.fields[F.BALLE_CHEZ] ?? "",
+    prochainPoint: r.fields[F.PROCHAIN_POINT] ?? null,
     priorite: r.fields[F.PRIORITE] ?? "",
     responsableContactIds: r.fields[F.RESPONSABLE_LIEN] ?? [],
     partiesPrenantesIds: r.fields[F.PARTIES_PRENANTES] ?? [],
@@ -78,6 +81,9 @@ export type TacheEditableInput = Partial<{
   prestataireContactIds: string[];
   responsableContactIds: string[];
   partiesPrenantesIds: string[];
+  prochaineEtape: string;
+  balleChez: string;
+  prochainPoint: string | null;
 }>;
 
 export async function updateTacheFields(id: string, input: TacheEditableInput) {
@@ -89,6 +95,10 @@ export async function updateTacheFields(id: string, input: TacheEditableInput) {
   if (input.prestataireContactIds !== undefined) fields[F.PRESTATAIRE_LIEN] = input.prestataireContactIds;
   if (input.responsableContactIds !== undefined) fields[F.RESPONSABLE_LIEN] = input.responsableContactIds;
   if (input.partiesPrenantesIds !== undefined) fields[F.PARTIES_PRENANTES] = input.partiesPrenantesIds;
+  if (input.prochaineEtape !== undefined) fields[F.PROCHAINE_ETAPE] = input.prochaineEtape;
+  // Champ à choix unique vidé : null (une chaîne vide serait créée comme option par typecast).
+  if (input.balleChez !== undefined) (fields as Record<string, unknown>)[F.BALLE_CHEZ] = input.balleChez || null;
+  if (input.prochainPoint !== undefined) (fields as Record<string, unknown>)[F.PROCHAIN_POINT] = input.prochainPoint;
 
   const [record] = await updateRecords<RawFields>(TABLES.TACHES, [{ id, fields }]);
   return mapTache(record);
@@ -132,10 +142,15 @@ export async function createTache(input: {
   description?: string;
   priorite?: string;
   echeance?: string | null;
+  /** Obligatoire : un sujet est créé « À faire », donc ouvert (voir lib/pilotage.ts). */
+  pilotage: { prochaineEtape: string; balleChez: string; prochainPoint: string | null };
 }) {
   const [record] = await createRecords<RawFields>(TABLES.TACHES, [
     {
       fields: {
+        [F.PROCHAINE_ETAPE]: input.pilotage.prochaineEtape,
+        [F.BALLE_CHEZ]: input.pilotage.balleChez,
+        [F.PROCHAIN_POINT]: input.pilotage.prochainPoint ?? undefined,
         [F.NOM]: input.nom,
         [F.SOUS_PROJET_ASSOCIE]: input.sousProjetIds,
         [F.RESPONSABLE_LIEN]: input.responsableContactIds ?? [],

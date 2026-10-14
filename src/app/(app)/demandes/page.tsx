@@ -50,8 +50,8 @@ export default async function DemandesPage() {
                 </p>
                 {d.description && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{d.description}</p>}
                 {admin && d.statut === "En attente" && (
-                  <div className="mt-3 flex gap-2">
-                    <AccepterButton id={d.id} />
+                  <div className="mt-3 flex flex-wrap items-start gap-2">
+                    <AccepterButton id={d.id} nouvelleTache={d.type === "Nouvelle tâche"} />
                     <RefuserButton id={d.id} />
                   </div>
                 )}

@@ -8,6 +8,7 @@ import { createTache, listTaches, updateTachesStatut, deplacerTaches } from "@/l
 import { listSousProjets, createSousProjet } from "@/lib/airtable/sous-projets";
 import { listSites } from "@/lib/airtable/sites";
 import { TACHE_STATUTS } from "@/lib/airtable/constants";
+import { lirePilotage, champsManquants, messageChampsManquants } from "@/lib/pilotage";
 
 export type FormState = { status: "idle" | "success" | "error"; message?: string };
 export type BulkResult = { status: "success" | "error"; message: string };
@@ -45,15 +46,28 @@ export async function bulkStatutAction(ids: string[], statut: string): Promise<B
     return { status: "error", message: "Vous n'êtes responsable d'aucune des tâches sélectionnées." };
   }
 
-  await updateTachesStatut(autorisees, statut);
+  // Rouvrir en lot un sujet clos ne doit pas contourner la règle « sujet ouvert ⇒ 3 champs remplis ».
+  const completes = autorisees.filter((id) => champsManquants(statut, parId.get(id)!).length === 0);
+  const incompletes = autorisees.length - completes.length;
+  if (completes.length === 0) {
+    return {
+      status: "error",
+      message: `Aucune tâche modifiée : pour passer à « ${statut} », chaque sujet doit avoir une prochaine étape, un « Balle chez » et un prochain point. Complétez-les depuis la fiche du sujet.`,
+    };
+  }
+
+  await updateTachesStatut(completes, statut);
   revaloriserListes();
 
   const ignorees = demandes.length - autorisees.length;
   return {
     status: "success",
     message:
-      `${autorisees.length} tâche(s) passée(s) à « ${statut} ».` +
-      (ignorees > 0 ? ` ${ignorees} ignorée(s) : vous n'en êtes pas responsable.` : ""),
+      `${completes.length} tâche(s) passée(s) à « ${statut} ».` +
+      (ignorees > 0 ? ` ${ignorees} ignorée(s) : vous n'en êtes pas responsable.` : "") +
+      (incompletes > 0
+        ? ` ${incompletes} non modifiée(s) : prochaine étape, « Balle chez » ou prochain point manquant (à compléter sur la fiche).`
+        : ""),
   };
 }
 
@@ -131,8 +145,12 @@ export async function createTacheAction(_prev: FormState, formData: FormData): P
   if (!sousProjetId) return { status: "error", message: "Le sous-projet est obligatoire." };
 
   const responsableContactId = String(formData.get("responsableContactId") ?? "");
+  const pilotage = lirePilotage(formData);
+  const manquants = champsManquants("À faire", pilotage);
+  if (manquants.length > 0) return { status: "error", message: messageChampsManquants(manquants) };
 
   const tache = await createTache({
+    pilotage,
     nom,
     sousProjetIds: [sousProjetId],
     responsableContactIds: responsableContactId ? [responsableContactId] : [],

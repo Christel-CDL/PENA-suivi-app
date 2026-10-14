@@ -5,6 +5,7 @@ import { createTacheAction, type FormState } from "./actions";
 import { TACHE_PRIORITES } from "@/lib/airtable/constants";
 import { ContactPicker } from "@/components/ContactPicker";
 import { SousProjetSelect, type SousProjetGroupe } from "@/components/SousProjetSelect";
+import { PilotageFields } from "@/components/PilotageFields";
 
 const initialState: FormState = { status: "idle" };
 
@@ -63,6 +64,8 @@ export function NewTacheForm({
           <ContactPicker name="responsableContactId" contacts={equipeProjetOptions} placeholder="Rechercher un responsable…" />
         </div>
       </div>
+
+      <PilotageFields />
 
       <label className="block text-sm">
         <span className="mb-1 block text-slate-600">Description des objectifs (facultatif)</span>

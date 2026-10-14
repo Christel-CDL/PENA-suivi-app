@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { assertAdmin, canAccessSites } from "@/lib/auth/rbac";
 import { creerDemande, accepterDemande, refuserDemande, listDemandes } from "@/lib/airtable/demandes";
 import { listUtilisateurs } from "@/lib/airtable/users";
+import { lirePilotage, champsManquants, messageChampsManquants } from "@/lib/pilotage";
 
 export type FormState = { status: "idle" | "success" | "error"; message?: string };
 
@@ -51,7 +52,13 @@ export async function accepterDemandeAction(_prev: FormState, formData: FormData
   const demande = (await listDemandes()).find((d) => d.id === id);
   if (!demande) return { status: "error", message: "Demande introuvable." };
 
-  await accepterDemande(demande);
+  const pilotage = lirePilotage(formData);
+  if (demande.type === "Nouvelle tâche") {
+    const manquants = champsManquants("À faire", pilotage);
+    if (manquants.length > 0) return { status: "error", message: messageChampsManquants(manquants) };
+  }
+
+  await accepterDemande(demande, pilotage);
   revalidatePath("/demandes");
   revalidatePath("/taches");
   revalidatePath("/");

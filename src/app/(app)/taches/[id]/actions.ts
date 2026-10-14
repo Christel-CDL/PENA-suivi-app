@@ -8,6 +8,7 @@ import { createJournalEntry } from "@/lib/airtable/journal";
 import { createContact } from "@/lib/airtable/contacts";
 import { canEditTask, canAddJournalEntry, assertAdmin } from "@/lib/auth/rbac";
 import { loadDossier } from "@/lib/data/dossier";
+import { lirePilotage, champsManquants, messageChampsManquants } from "@/lib/pilotage";
 
 export type FormState = { status: "idle" | "success" | "error"; message?: string };
 
@@ -24,11 +25,17 @@ export async function updateTacheAction(_prev: FormState, formData: FormData): P
     return { status: "error", message: "Vous n'êtes pas responsable de cette tâche." };
   }
 
+  const statut = String(formData.get("statut") ?? tache.statut);
+  const pilotage = lirePilotage(formData);
+  const manquants = champsManquants(statut, pilotage);
+  if (manquants.length > 0) return { status: "error", message: messageChampsManquants(manquants) };
+
   await updateTacheFields(id, {
-    statut: String(formData.get("statut") ?? tache.statut),
+    statut,
     priorite: String(formData.get("priorite") ?? tache.priorite),
     echeance: (formData.get("echeance") as string) || null,
     description: String(formData.get("description") ?? tache.description),
+    ...pilotage,
   });
 
   revalidatePath(`/taches/${id}`);
