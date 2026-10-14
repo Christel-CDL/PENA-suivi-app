@@ -72,7 +72,13 @@ Référence complète de chaque workflow (JSON exporté, à repousser via l'API 
 
 ### 7.1 "PENA - Ingestion e-mails" (id `FY7p9fh2KWcGRng9`)
 
-Actif, cron `*/15 8-20 * * 1-5` (toutes les 15 min, jours ouvrés 8h-20h). Lit les e-mails Outlook de christel.lacome@cdl-expertises.com (Microsoft Graph, `Mail.Read`), filtre (domaine `@groupepena.fr` en to/cc/from OU mot-clé "pena" dans objet/corps, à l'exclusion du domaine `isanetfact.facturation.io` = logiciel de facturation CDL), résume chaque e-mail pertinent avec Claude (Haiku 4.5, clé Anthropic en credential Header Auth n8n), écrit le résultat dans ENTREES_A_VALIDER (statut "À valider") — **jamais directement dans JOURNAL**, conformément au cahier des charges. Christel valide ou rejette manuellement chaque entrée dans l'onglet "Entrées à valider" de l'app.
+**Refondu le 14/10/2026 (v2)**, voir encadré ci-dessous. Actif, cron `*/15 8-20 * * 1-5` (toutes les 15 min, jours ouvrés 8h-20h). Lit les e-mails Outlook de christel.lacome@cdl-expertises.com (Microsoft Graph, `Mail.Read`), filtre (domaine `@groupepena.fr` en to/cc/from OU mot-clé "pena" dans objet/corps, à l'exclusion du domaine `isanetfact.facturation.io` = logiciel de facturation CDL), résume chaque e-mail pertinent avec Claude (Haiku 4.5, clé Anthropic en credential Header Auth n8n), écrit le résultat dans ENTREES_A_VALIDER (statut "À valider") — **jamais directement dans JOURNAL**, conformément au cahier des charges. Christel valide ou rejette manuellement chaque entrée dans l'onglet "Entrées à valider" de l'app.
+
+**v2 du 14/10/2026 — dédoublonnage, fils, rattachement.** Source : `deploy/n8n-ingestion/` (code des nœuds + `construit-workflow.mjs`, qui génère `deploy/n8n-workflow-ingestion-email.json` à partir de la version **active** lue par l'API). Chaîne : Outlook (`$select` + `internetMessageId,conversationId`, chevauchement de 5 min avec le passage précédent) → filtre PENA → 4 lectures Airtable paginées et `executeOnce` (sujets ouverts, contacts, entrées existantes, IDs du journal) → « Regroupe par fil et rattache » → Claude (un résumé par fil) → création (POST) ou complément de l'entrée « À valider » du même fil (PATCH). Champs : `ID message source` (ENTRÉES et JOURNAL, plusieurs IDs séparés par des espaces ; l'app le recopie dans le journal à la validation), `ID conversation` (ENTRÉES). Garde-fou : > 20 fils = erreur, rien n'est écrit.
+- **Vraie cause des doublons** (analyse des exécutions du 06 au 09/10) : aucun mail n'était relu ; c'étaient des **messages différents du même échange** (notification « noreply », réponse/transfert de Christel dans Éléments envoyés…), arrivés dans des passages différents. D'où le complément d'entrée par `conversationId` entre passages, et pas seulement le regroupement au sein d'un passage.
+- **Piège brouillon / version publiée** (n8n récent) : `GET /workflows/{id}` renvoie le *brouillon* dans `nodes` et la version qui tourne dans `activeVersion`. Le brouillon du 15/09 avait perdu tous les paramètres de requête Outlook sans jamais être publié (le « correctif du 15/09 » de rattachement n'a donc jamais tourné). Toujours partir de `activeVersion` ; `PUT` remplace le brouillon, `POST /activate` le publie.
+- **`PUT` : renvoyer `staticData`** (sinon risque de perdre `lastCheck` et de relire tous les mails depuis le 10/09) ; credentials repris tels quels dans chaque nœud.
+- **Test à blanc** : copie temporaire sans nœud d'écriture, déclencheur « chaque minute », plage fixe ; activer, lire l'exécution, désactiver puis supprimer (le `DELETE` renvoie 409 tant que la désactivation n'est pas finie : réessayer). Résultat du 14/10 sur les mails Taillet du 07–08/10 : 2 messages → **1 entrée**, rattachée à « Mise à jour plans VRD PE ».
 
 ### 7.2 "PENA - Sync planning calendrier" (id `yoHd0liyuV9rnhkw`)
 
@@ -88,6 +94,16 @@ Credential Microsoft utilisé par les deux workflows : générique **"OAuth2 API
 - Aucune donnée n'entre dans le vrai Journal sans validation humaine explicite (Admin).
 - Le calendrier de Christel contient d'autres clients que PENA — le filtre par mot-clé "Journée" + code de site existe précisément pour ne jamais exposer un rendez-vous non-PENA.
 - Image Docker publique = OK (aucune donnée dedans), mais le dépôt GitHub source, lui, reste privé.
+
+## 8 bis. v2 du 14/10/2026 (brief « volets, pilotage, comptes-rendus »)
+
+- Structure Site → Volet (SOUS-PROJETS, 11 actifs + 1 de veille au statut « En attente ») → Sujet (TÂCHES). Le site d'un volet vient de `Projet associé`, jamais du préfixe `PM ·`/`PE ·` du nom.
+- Pilotage : `Prochaine étape`, `Balle chez`, `Prochain point`. Règle « sujet ouvert ⇒ 3 champs remplis » dans `src/lib/pilotage.ts`, appelée par **toutes** les actions serveur qui créent, rouvrent ou modifient un sujet (fiche, statut en lot, + Nouvelle tâche, création depuis une entrée, acceptation d'une demande, compte-rendu). Vues du tableau de bord : `src/lib/pilotage-vues.ts`. Dates « aujourd'hui » à l'heure de Paris (`aujourdhui()`).
+- Compte-rendu : `/compte-rendu` (Server Action `creerCompteRenduAction`). `Contact associé` = **auteur** (donne le droit de modifier l'entrée, `canEditJournalEntry`) ; les présents vont dans le champ `Participants` — ne jamais les mélanger.
+- Formulaires longs (compte-rendu, entrée à valider) : `onSubmit` + `startTransition(() => formAction(fd))` au lieu de `action={formAction}`, car React 19 vide le formulaire après chaque envoi, même en erreur.
+- Champs dépréciés, plus lus par l'app mais conservés dans Airtable : `Prochaine relance`, `Dernière relance`, `Prestataire` (liste simple — encore affiché en gris « ancienne valeur » sur 8 sujets sans prestataire lié, à rattacher avant suppression).
+- Le jeton Airtable de l'app n'a pas le droit de modifier le schéma (volontaire) : les champs sont créés via le connecteur Airtable de Christel.
+- Non testé avec un vrai compte Contributeur (impossible de signer une session au nom d'un tiers) : vues « À moi / J'attends » côté Contributeur et case « Mettre à jour le sujet » d'un compte-rendu — à vérifier avec Cédric.
 
 ## 9. État au 20/09/2026 — ce qui reste à faire
 

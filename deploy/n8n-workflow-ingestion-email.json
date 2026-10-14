@@ -6,10 +6,18 @@
       "name": "Toutes les 15 min, jours ouvres 8h-20h",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "parameters": {
         "rule": {
-          "interval": [{ "field": "cronExpression", "expression": "*/15 8-20 * * 1-5" }]
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 8-20 * * 1-5"
+            }
+          ]
         }
       }
     },
@@ -18,9 +26,12 @@
       "name": "Calcule la date de depart",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0],
+      "position": [
+        220,
+        0
+      ],
       "parameters": {
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst since = staticData.lastCheck || '2026-09-10T00:00:00Z';\nstaticData.lastCheck = new Date().toISOString();\nreturn [{ json: { since } }];"
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\n// Chevauchement de 5 min avec le passage précédent : un mail indexé en retard n'est jamais\n// manqué ; s'il a déjà été traité, il est écarté plus loin grâce à son internetMessageId.\nconst MARGE_MS = 5 * 60 * 1000;\nconst dernier = staticData.lastCheck || new Date(Date.now() - 24 * 3600 * 1000).toISOString();\nconst since = new Date(new Date(dernier).getTime() - MARGE_MS).toISOString();\nstaticData.lastCheck = new Date().toISOString();\nreturn [{ json: { since } }];"
       }
     },
     {
@@ -28,7 +39,10 @@
       "name": "Lit les emails Outlook",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [440, 0],
+      "position": [
+        440,
+        0
+      ],
       "parameters": {
         "method": "GET",
         "url": "https://graph.microsoft.com/v1.0/me/messages",
@@ -37,16 +51,31 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Prefer", "value": "outlook.body-content-type=\"text\"" }
+            {
+              "name": "Prefer",
+              "value": "outlook.body-content-type=\"text\""
+            }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "$filter", "value": "={{ 'receivedDateTime ge ' + $json.since }}" },
-            { "name": "$select", "value": "subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,id" },
-            { "name": "$top", "value": "50" },
-            { "name": "$orderby", "value": "receivedDateTime asc" }
+            {
+              "name": "$filter",
+              "value": "={{ 'receivedDateTime ge ' + $json.since }}"
+            },
+            {
+              "name": "$select",
+              "value": "subject,from,sender,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,id,internetMessageId,conversationId"
+            },
+            {
+              "name": "$top",
+              "value": "50"
+            },
+            {
+              "name": "$orderby",
+              "value": "receivedDateTime asc"
+            }
           ]
         },
         "options": {}
@@ -63,17 +92,247 @@
       "name": "Filtre les emails PENA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [660, 0],
+      "position": [
+        660,
+        0
+      ],
       "parameters": {
-        "jsCode": "const items = $input.first().json.value || [];\nconst results = [];\nconst EXCLUDE_SENDER = 'cdlexpertises@isanetfact.facturation.io';\n\nfunction addr(a) { return ((a && a.emailAddress && a.emailAddress.address) || '').toLowerCase(); }\n\nfor (const msg of items) {\n  const fromAddr = addr(msg.from);\n  if (fromAddr === EXCLUDE_SENDER) continue;\n\n  const toAddrs = (msg.toRecipients || []).map(addr);\n  const ccAddrs = (msg.ccRecipients || []).map(addr);\n  const allAddrs = [fromAddr, ...toAddrs, ...ccAddrs];\n  const hasPenaDomain = allAddrs.some((a) => a.endsWith('@groupepena.fr'));\n\n  const subject = msg.subject || '';\n  const bodyText = (msg.body && msg.body.content) || msg.bodyPreview || '';\n  const haystack = (subject + ' ' + bodyText).toLowerCase();\n  const hasPenaKeyword = haystack.includes('pena');\n\n  if (!hasPenaDomain && !hasPenaKeyword) continue;\n\n  results.push({\n    json: {\n      id: msg.id,\n      subject,\n      from: fromAddr,\n      receivedDateTime: msg.receivedDateTime,\n      bodyText: bodyText.slice(0, 6000),\n    },\n  });\n}\n\nreturn results;"
+        "jsCode": "// Nœud « Filtre les emails PENA » : ne garde que les mails liés au dossier PENA\n// (domaine @groupepena.fr en De/À/Cc, ou mot « pena » dans l'objet ou le corps),\n// hors logiciel de facturation CDL.\nconst items = $input.first().json.value || [];\nconst results = [];\nconst EXCLUDE_SENDER = 'cdlexpertises@isanetfact.facturation.io';\n\nfunction addr(a) { return ((a && a.emailAddress && a.emailAddress.address) || '').toLowerCase(); }\n\nfor (const msg of items) {\n  const fromAddr = addr(msg.from) || addr(msg.sender);\n  if (fromAddr === EXCLUDE_SENDER) continue;\n\n  const toAddrs = (msg.toRecipients || []).map(addr);\n  const ccAddrs = (msg.ccRecipients || []).map(addr);\n  const allAddrs = [fromAddr, ...toAddrs, ...ccAddrs];\n  const hasPenaDomain = allAddrs.some((a) => a.endsWith('@groupepena.fr'));\n\n  const subject = msg.subject || '';\n  const bodyText = (msg.body && msg.body.content) || msg.bodyPreview || '';\n  const haystack = (subject + ' ' + bodyText).toLowerCase();\n  const hasPenaKeyword = haystack.includes('pena');\n\n  if (!hasPenaDomain && !hasPenaKeyword) continue;\n\n  results.push({\n    json: {\n      id: msg.id,\n      // Identifiant stable d'un message (le même dans Boîte de réception et Éléments envoyés) : sert au dédoublonnage.\n      internetMessageId: msg.internetMessageId || '',\n      // Fil de discussion : les messages d'un même fil donnent une seule entrée.\n      conversationId: msg.conversationId || '',\n      subject,\n      from: fromAddr,\n      fromMissing: !fromAddr,\n      to: toAddrs,\n      cc: ccAddrs,\n      receivedDateTime: msg.receivedDateTime,\n      bodyText: bodyText.slice(0, 6000),\n    },\n  });\n}\n\nreturn results;\n"
       }
+    },
+    {
+      "parameters": {
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tbl08JtLokfU4MA9U",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "returnFieldsByFieldId",
+              "value": "true"
+            },
+            {
+              "name": "filterByFormula",
+              "value": "AND({Statut}!='Terminé',{Statut}!='Annulée')"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "name": "Lit les sujets ouverts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tbllfX0VF60aiCDFV",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "returnFieldsByFieldId",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "name": "Lit les contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tblHiNsXnONUGUUVK",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "returnFieldsByFieldId",
+              "value": "true"
+            },
+            {
+              "name": "filterByFormula",
+              "value": "OR({ID message source}!='',{Statut}='À valider')"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "name": "Lit les entrees existantes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tbleeo7rGuwrh01J3",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "returnFieldsByFieldId",
+              "value": "true"
+            },
+            {
+              "name": "filterByFormula",
+              "value": "{ID message source}!=''"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "offset",
+                    "value": "={{ $response.body.offset }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.offset }}",
+              "limitPagesFetched": true,
+              "maxRequests": 50
+            }
+          }
+        }
+      },
+      "name": "Lit les IDs du journal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        0
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nœud « Regroupe par fil et rattache » (Code, une fois pour tous les éléments).\n// 1. Écarte les mails déjà connus (internetMessageId présent dans ENTRÉES ou JOURNAL).\n// 2. Regroupe les mails restants par fil (conversationId) : une seule entrée par fil.\n// 3. Si une entrée « À valider » existe déjà pour ce fil, elle sera complétée, pas dupliquée.\n// 4. Suggère le sujet ouvert le plus probable (contact lié, puis mots-clés) — jamais une création.\n\nconst MOI = 'christel.lacome@cdl-expertises.com';\nconst MAX_FILS = 20; // garde-fou : au-delà, on s'arrête plutôt que d'inonder la file\nconst F = {\n  tache: { nom: 'fld5zG7gky1Im4pSb', etape: 'fldQYFwKugQeg2Oql', pp: 'fldFwgUhvNl7OGCYm', presta: 'fldTxUuDSdlDvQtdH', resp: 'fldAhpJcotmZCboiD' },\n  contactEmail: 'fldOjp5wilEF5M319',\n  entree: { statut: 'fldXhYl1ENEzAxteW', idMsg: 'fldlr11SNY9cxjJtE', idConv: 'fld5psDjYOgzT93zC', resume: 'fldJw5tHYusRtj3fr', tache: 'fldRlvjCTO6uM9VxL' },\n  journalIdMsg: 'fldrFc26YXzeQEoDs',\n};\n\n// Chaque nœud de lecture Airtable renvoie un élément par page de résultats.\nconst enregistrements = (nom) => $(nom).all().flatMap((i) => i.json.records || []);\nconst mails = $('Filtre les emails PENA').all().map((i) => i.json);\nconst taches = enregistrements('Lit les sujets ouverts');\nconst contacts = enregistrements('Lit les contacts');\nconst entrees = enregistrements('Lit les entrees existantes');\nconst journal = enregistrements('Lit les IDs du journal');\n\n// --- 1. Dédoublonnage par message -------------------------------------------\nconst ids = (s) => (s || '').split(/\\s+/).filter(Boolean);\nconst dejaVus = new Set([\n  ...entrees.flatMap((r) => ids(r.fields[F.entree.idMsg])),\n  ...journal.flatMap((r) => ids(r.fields[F.journalIdMsg])),\n]);\nconst vusIci = new Set();\nconst nouveaux = mails.filter((m) => {\n  const id = m.internetMessageId || m.id;\n  if (dejaVus.has(id) || vusIci.has(id)) return false;\n  vusIci.add(id);\n  return true;\n});\n\n// --- 2. Regroupement par fil ------------------------------------------------\nconst fils = new Map();\nfor (const m of nouveaux) {\n  const cle = m.conversationId || m.internetMessageId || m.id;\n  if (!fils.has(cle)) fils.set(cle, []);\n  fils.get(cle).push(m);\n}\nif (fils.size > MAX_FILS) {\n  throw new Error(`Garde-fou : ${fils.size} fils à créer d'un coup (maximum ${MAX_FILS}). Rien n'a été écrit.`);\n}\n\n// --- 4. Rattachement au sujet existant --------------------------------------\nconst normaliser = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');\nconst VIDES = new Set(['pena', 'pour', 'avec', 'dans', 'sans', 'cette', 'votre', 'vous', 'nous', 'merci', 'bonjour',\n  'cordialement', 'objet', 'christel', 'lacome', 'message', 'mise', 'jour', 'suite', 'faire', 'point', 'plus', 'bien',\n  'sont', 'etre', 'avoir', 'tout', 'tous', 'entre', 'apres', 'avant', 'depuis', 'leur', 'leurs', 'elle', 'ils']);\nconst mots = (s) => new Set(\n  normaliser(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !VIDES.has(w)).map((w) => w.replace(/s$/, '')),\n);\nconst motsDuSujet = new Map(taches.map((t) => [t.id, mots(`${t.fields[F.tache.nom] || ''} ${t.fields[F.tache.etape] || ''}`)]));\n// Un mot présent dans beaucoup de sujets (ex. « plan ») compte moins qu'un mot rare (« voirie »).\nconst frequence = new Map();\nfor (const s of motsDuSujet.values()) for (const w of s) frequence.set(w, (frequence.get(w) || 0) + 1);\nconst contactParEmail = new Map(\n  contacts.filter((c) => c.fields[F.contactEmail]).map((c) => [c.fields[F.contactEmail].toLowerCase(), c.id]),\n);\n\nfunction sujetSuggere(groupe) {\n  const adresses = new Set(\n    groupe.flatMap((m) => [m.from, ...(m.to || []), ...(m.cc || [])])\n      .filter((a) => a && a !== MOI && !/no-?reply/.test(a)),\n  );\n  const contactsDuFil = new Set([...adresses].map((a) => contactParEmail.get(a)).filter(Boolean));\n  const motsDuFil = mots(groupe.map((m) => `${m.subject} ${m.bodyText}`).join(' '));\n\n  let meilleur = null;\n  let meilleurScore = 0;\n  for (const t of taches) {\n    const lies = [...(t.fields[F.tache.pp] || []), ...(t.fields[F.tache.presta] || []), ...(t.fields[F.tache.resp] || [])];\n    let score = lies.some((id) => contactsDuFil.has(id)) ? 1 : 0;\n    for (const w of motsDuSujet.get(t.id)) if (motsDuFil.has(w)) score += 1 / frequence.get(w);\n    if (score > meilleurScore) {\n      meilleurScore = score;\n      meilleur = t.id;\n    }\n  }\n  // Seuil : un contact lié, ou l'équivalent d'un mot propre à un seul sujet.\n  return meilleurScore >= 1 ? meilleur : null;\n}\n\n// --- 3. Préparation des résumés ---------------------------------------------\nconst SYSTEME =\n  \"Tu resumes des e-mails professionnels pour un journal de suivi de dossier ICPE (reglementation environnementale \" +\n  \"industrielle) en France. On te donne un ou plusieurs messages d'un meme fil de discussion : redige UN seul resume \" +\n  \"factuel et concis (2 a 5 phrases), en francais, de l'ensemble du fil -- ce qui a ete communique, demande ou decide. \" +\n  \"Ecris en texte simple, sans titre ni mise en forme Markdown. Ne recopie jamais le texte brut. N'invente rien et ne suppose aucune action a entreprendre. Si un resume precedent \" +\n  \"est fourni, produis un resume mis a jour de tout le fil. Si le fil ne contient aucune information exploitable pour \" +\n  \"un suivi de dossier, reponds exactement : 'Aucune information exploitable.'\";\n\nconst sortie = [];\nfor (const [cle, groupe] of fils) {\n  groupe.sort((a, b) => a.receivedDateTime.localeCompare(b.receivedDateTime));\n  const existante = entrees.find(\n    (r) => r.fields[F.entree.statut] === 'À valider' && r.fields[F.entree.idConv] && r.fields[F.entree.idConv] === cle,\n  );\n  const messages = groupe\n    .map((m) => `--- Message du ${m.receivedDateTime}, de ${m.from || 'expediteur inconnu'}, objet : ${m.subject}\\n${(m.bodyText || '').slice(0, 3000)}`)\n    .join('\\n\\n')\n    .slice(0, 12000);\n  const resumePrecedent = existante ? `Resume precedent du debut du fil :\\n${existante.fields[F.entree.resume] || ''}\\n\\nNouveaux messages :\\n` : '';\n  const expediteur = (groupe.find((m) => m.from && m.from !== MOI && !/no-?reply/.test(m.from)) || groupe[0]).from || '';\n\n  sortie.push({\n    json: {\n      mode: existante ? 'complement' : 'creation',\n      recordId: existante ? existante.id : null,\n      idConversation: groupe[0].conversationId || '',\n      idsMessages: [...ids(existante && existante.fields[F.entree.idMsg]), ...groupe.map((m) => m.internetMessageId || m.id)],\n      dateEmail: groupe[0].receivedDateTime,\n      expediteur,\n      tacheSuggeree: existante && (existante.fields[F.entree.tache] || []).length ? null : sujetSuggere(groupe),\n      nbMessages: groupe.length,\n      system: SYSTEME,\n      user: resumePrecedent + messages,\n    },\n  });\n}\nreturn sortie;\n"
+      },
+      "name": "Regroupe par fil et rattache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ]
     },
     {
       "id": "http_claude",
       "name": "Resume avec Claude",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [880, 0],
+      "position": [
+        2016,
+        0
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.anthropic.com/v1/messages",
@@ -82,13 +341,19 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\n  model: \"claude-haiku-4-5\",\n  max_tokens: 300,\n  system: \"Tu resumes des e-mails professionnels pour un journal de suivi de dossier ICPE (reglementation environnementale industrielle) en France. Redige un resume factuel et concis (2 a 4 phrases), en francais, de ce que dit cet e-mail -- ce qui a ete communique, demande ou decide. Ne recopie jamais le texte brut de l'e-mail. N'invente rien et ne suppose aucune action a entreprendre. Si l'e-mail ne contient aucune information exploitable pour un suivi de dossier, reponds exactement : 'Aucune information exploitable.'\",\n  messages: [\n    { role: \"user\", content: \"Objet : \" + $json.subject + \"\\n\\nContenu :\\n\" + $json.bodyText }\n  ]\n} }}",
+        "jsonBody": "={{ { model: \"claude-haiku-4-5\", max_tokens: 400, system: $json.system, messages: [ { role: \"user\", content: $json.user } ] } }}",
         "options": {}
       },
       "credentials": {
@@ -103,17 +368,27 @@
       "name": "Prepare l'enregistrement Airtable",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 0],
+      "position": [
+        2240,
+        0
+      ],
       "parameters": {
-        "jsCode": "const claudeResponse = $json;\nconst summary = (claudeResponse.content && claudeResponse.content[0] && claudeResponse.content[0].text) || '';\nconst original = $('Filtre les emails PENA').item.json;\n\nreturn [{\n  json: {\n    fields: {\n      fldqeMY0gbHHQlSUN: original.receivedDateTime,\n      fldklS9cEhGVgWw4l: original.from,\n      fldJw5tHYusRtj3fr: summary,\n      fldXhYl1ENEzAxteW: 'À valider',\n    },\n  },\n}];"
+        "jsCode": "// Nœud « Prepare l'enregistrement Airtable » (Code, une fois pour tous les éléments).\n// Le nœud de résumé renvoie un élément par fil, dans le même ordre que « Regroupe par fil et rattache ».\nconst fils = $('Regroupe par fil et rattache').all();\n\nreturn $input.all().map((reponse, i) => {\n  const fil = fils[i].json;\n  const resume = ((reponse.json.content && reponse.json.content[0] && reponse.json.content[0].text) || '').trim();\n  const champs = {\n    fldJw5tHYusRtj3fr: resume, // Résumé proposé\n    fldlr11SNY9cxjJtE: fil.idsMessages.join(' '), // ID message source (tous les messages du fil)\n  };\n  // Pas de sujet suggéré pour un mail sans contenu utile (newsletter…) : la suggestion serait du hasard.\n  const exploitable = !/^aucune information exploitable/i.test(resume);\n  if (fil.tacheSuggeree && exploitable) champs.fldRlvjCTO6uM9VxL = [fil.tacheSuggeree]; // Tâche suggérée\n\n  if (fil.mode === 'complement') {\n    return { json: { mode: 'complement', record: { id: fil.recordId, fields: champs } } };\n  }\n  return {\n    json: {\n      mode: 'creation',\n      record: {\n        fields: {\n          ...champs,\n          fldqeMY0gbHHQlSUN: fil.dateEmail, // Date de l'e-mail source (premier message du fil)\n          fldklS9cEhGVgWw4l: fil.expediteur, // Expéditeur\n          fldXhYl1ENEzAxteW: 'À valider', // Statut\n          fldmoc83Alt9qrjEn: 'Email', // Origine\n          fld5psDjYOgzT93zC: fil.idConversation, // ID conversation\n        },\n      },\n    },\n  };\n});\n"
       }
     },
     {
-      "id": "http_airtable",
-      "name": "Ecrit dans Entrees a valider",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1320, 0],
+      "parameters": {
+        "jsCode": "return $input.all().filter((i) => i.json.mode === 'creation');"
+      },
+      "name": "Garde les nouvelles entrees",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        -112
+      ]
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tblHiNsXnONUGUUVK?returnFieldsByFieldId=true",
@@ -121,9 +396,53 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { records: [ { fields: $json.fields } ] } }}",
+        "jsonBody": "={{ { records: [ $json.record ], typecast: true } }}",
         "options": {}
       },
+      "name": "Ecrit dans Entrees a valider",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        -112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IMXxSWZ9pMZm3U0q",
+          "name": "Airtable PENA (header)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter((i) => i.json.mode === 'complement');"
+      },
+      "name": "Garde les entrees a completer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.airtable.com/v0/app6sehe4hMHO1NXe/tblHiNsXnONUGUUVK?returnFieldsByFieldId=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { records: [ $json.record ], typecast: true } }}",
+        "options": {}
+      },
+      "name": "Complete l'entree du meme fil",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        112
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "IMXxSWZ9pMZm3U0q",
@@ -134,25 +453,156 @@
   ],
   "connections": {
     "Toutes les 15 min, jours ouvres 8h-20h": {
-      "main": [[{ "node": "Calcule la date de depart", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Calcule la date de depart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Calcule la date de depart": {
-      "main": [[{ "node": "Lit les emails Outlook", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lit les emails Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lit les emails Outlook": {
-      "main": [[{ "node": "Filtre les emails PENA", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filtre les emails PENA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filtre les emails PENA": {
-      "main": [[{ "node": "Resume avec Claude", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lit les sujets ouverts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lit les sujets ouverts": {
+      "main": [
+        [
+          {
+            "node": "Lit les contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lit les contacts": {
+      "main": [
+        [
+          {
+            "node": "Lit les entrees existantes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lit les entrees existantes": {
+      "main": [
+        [
+          {
+            "node": "Lit les IDs du journal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lit les IDs du journal": {
+      "main": [
+        [
+          {
+            "node": "Regroupe par fil et rattache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regroupe par fil et rattache": {
+      "main": [
+        [
+          {
+            "node": "Resume avec Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Resume avec Claude": {
-      "main": [[{ "node": "Prepare l'enregistrement Airtable", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Prepare l'enregistrement Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare l'enregistrement Airtable": {
-      "main": [[{ "node": "Ecrit dans Entrees a valider", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Garde les nouvelles entrees",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Garde les entrees a completer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Garde les nouvelles entrees": {
+      "main": [
+        [
+          {
+            "node": "Ecrit dans Entrees a valider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Garde les entrees a completer": {
+      "main": [
+        [
+          {
+            "node": "Complete l'entree du meme fil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   }
 }

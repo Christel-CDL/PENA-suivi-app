@@ -111,7 +111,10 @@ export const ENTREES_A_VALIDER_FIELDS = {
   TACHE_SUGGEREE: "fldRlvjCTO6uM9VxL",
   STATUT: "fldXhYl1ENEzAxteW",
   ENTREE_LIEE: "fld99jMDy44gaQvnB",
+  /** Un ou plusieurs internetMessageId séparés par des espaces (une entrée peut résumer un fil). */
   ID_MESSAGE_SOURCE: "fldlr11SNY9cxjJtE",
+  /** conversationId Outlook : n8n complète l'entrée « À valider » du même fil au lieu d'en créer une. */
+  ID_CONVERSATION: "fld5psDjYOgzT93zC",
   ACTIONS_DEMANDEES: "fldwqEiTTBXF3mlE7",
   LIEN_DOCUMENT: "fldW7IXN7BTRYwkFF",
   ORIGINE: "fldmoc83Alt9qrjEn",
