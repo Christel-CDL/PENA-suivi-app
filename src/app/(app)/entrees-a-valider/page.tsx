@@ -37,6 +37,12 @@ export default async function EntreesAValiderPage() {
         sousProjetNom: sp?.nom ?? "",
         siteId,
         siteNom: (siteId && sitesById.get(siteId)) || "",
+        pilotage: {
+          statut: t.statut,
+          prochaineEtape: t.prochaineEtape,
+          balleChez: t.balleChez,
+          prochainPoint: t.prochainPoint,
+        },
       };
     }),
   };

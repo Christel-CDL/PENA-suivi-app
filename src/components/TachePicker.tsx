@@ -9,6 +9,8 @@ export type TacheOption = {
   sousProjetNom: string;
   siteId: string | null;
   siteNom: string;
+  /** Valeurs actuelles du sujet, pour préremplir un bloc « Mettre à jour le sujet ». */
+  pilotage?: { statut: string; prochaineEtape: string; balleChez: string; prochainPoint: string | null };
 };
 
 export type PickerData = {
@@ -32,12 +34,19 @@ export function TachePicker({
   name,
   data,
   defaultId,
+  onChange,
 }: {
   name: string;
   data: PickerData;
   defaultId?: string | null;
+  /** Appelé quand la tâche choisie change (ex. pour préremplir un bloc de mise à jour). */
+  onChange?: (id: string | null) => void;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(defaultId ?? null);
+  const [selectedId, setSelectedIdInterne] = useState<string | null>(defaultId ?? null);
+  const setSelectedId = (id: string | null) => {
+    setSelectedIdInterne(id);
+    onChange?.(id);
+  };
   const [q, setQ] = useState("");
   const [siteId, setSiteId] = useState("");
   const [sousProjetId, setSousProjetId] = useState("");
