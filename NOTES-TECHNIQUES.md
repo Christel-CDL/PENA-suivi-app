@@ -50,7 +50,7 @@ Deux rôles : **Admin** (Christel, tous droits, accès "all" sans filtre de site
 
 ## 6. Déploiement
 
-**Pipeline** : push sur `master` du dépôt GitHub privé `https://github.com/Christel-CDL/PENA-suivi-app` → GitHub Actions (`.github/workflows/docker-publish.yml`) construit l'image Docker et la publie sur `ghcr.io/christel-cdl/pena-suivi-app:latest` (paquet **public** par choix de Christel, pour simplifier — aucune donnée/secret dans l'image, tout est en variables d'environnement) → le VPS Hostinger (projet Docker Compose `root`, partagé avec n8n et Traefik) télécharge cette image et la sert derrière Traefik/HTTPS.
+**Pipeline** : push sur `master` du dépôt GitHub privé `https://github.com/Christel-CDL/PENA-suivi-app` → GitHub Actions (`.github/workflows/docker-publish.yml`) construit l'image Docker et la publie sur `ghcr.io/christel-cdl/pena-suivi-app:latest` (paquet **public** par choix de Christel, pour simplifier — aucune donnée/secret dans l'image, tout est en variables d'environnement) → le VPS Hostinger (projet Docker Compose **`pena-suivi`**, séparé depuis le 14/10/2026, réseau externe `root_default` de Traefik, routeur Traefik `pena-suivi`) télécharge cette image et la sert derrière Traefik/HTTPS. **Avant le 14/10**, l'app était dans le projet `root` : chaque Deploy tirait aussi `traefik` et `n8n` **sans version** (donc « latest ») et recréait les 4 conteneurs — mises à jour involontaires et coupures. Désormais `root` = Traefik `v3` + n8n `2.43.5` figés ; le reliquat `constats` (premier essai de l'app de constats, sans variables, en boucle de redémarrage) a été retiré.
 
 App en ligne : **https://suivi-pena.srv1102696.hstgr.cloud** (VM Hostinger id `1102696`, host `srv1102696.hstgr.cloud`). Référence du compose complet : [deploy/docker-compose.root.yml](deploy/docker-compose.root.yml). `Dockerfile` = build multi-stage standard `output: "standalone"` (voir `next.config.ts`).
 
@@ -58,7 +58,7 @@ App en ligne : **https://suivi-pena.srv1102696.hstgr.cloud** (VM Hostinger id `1
 1. Je committe le code localement.
 2. Je donne à Christel la commande `git push` à coller dans un terminal **PowerShell** (pas Bash — attention à la syntaxe, `&&`/`grep`/`cut` ne fonctionnent pas telles quelles ; utiliser `;` et `Where-Object`/`Select-String`).
 3. Elle vérifie la coche verte sur `/actions` du repo GitHub (build ~1 min).
-4. Elle clique sur **Deploy** dans hPanel → VPS → Docker → projet **root** (**après** la coche verte — cliquer trop tôt récupère l'image précédente, piège rencontré plusieurs fois).
+4. Elle clique sur **Deploy** dans hPanel → VPS → Docker → projet **pena-suivi** (**après** la coche verte — cliquer trop tôt récupère l'image précédente, piège rencontré plusieurs fois).
 
 Piège Hostinger : son moteur de déploiement sait uniquement **télécharger une image déjà construite** (`image:` dans le compose), jamais **construire depuis un contexte Git** (`build: <url>` échoue avec "No such image"). Toujours `image: ghcr.io/...`, jamais `build:`, dans le compose de ce VPS.
 

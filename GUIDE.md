@@ -106,7 +106,9 @@ Pour rattacher l'entrée :
 Le code source est sur un dépôt GitHub privé (`Christel-CDL/PENA-suivi-app`). Claude prépare et envoie le code, mais **deux actions restent à faire par vous** (des restrictions de sécurité empêchent Claude de les faire lui-même) :
 
 1. **Envoyer le code** : Claude vous donnera une commande `git push` à coller dans un terminal PowerShell sur votre PC.
-2. **Redéployer sur le serveur** : dans hPanel → VPS → Docker → projet **root** → bouton **Deploy/Déployer**. Cela télécharge la nouvelle version de l'image (construite automatiquement par GitHub Actions dès que le code est envoyé, ça prend 2-3 minutes) et redémarre `pena-app` — n8n et Traefik ne sont normalement pas affectés tant que leur configuration ne change pas.
+2. **Redéployer sur le serveur** : attendez la coche verte sur la page Actions du dépôt GitHub, puis hPanel → VPS → Docker → projet **pena-suivi** → bouton **Deploy/Déployer**. Cela télécharge la nouvelle version de l'image et redémarre seulement l'application de suivi.
+
+   **Ne cliquez plus sur Deploy dans le projet `root`** pour une mise à jour de l'application : depuis le 14/10/2026, `root` ne contient plus que Traefik et n8n, dans des versions figées (Traefik v3, n8n 2.43.5). Un Deploy de `root` redémarre n8n et coupe quelques secondes tous les sites du serveur (dont app.expertform.fr) : à ne faire que pour une évolution volontaire de n8n ou de Traefik, entre deux passages de n8n.
 
 En cas de doute, demandez à Claude de vous guider étape par étape — il peut vérifier les journaux de déploiement (lecture seule) même s'il ne peut pas cliquer sur "Déployer" à votre place.
 
