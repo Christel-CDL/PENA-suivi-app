@@ -143,6 +143,8 @@ export const DEMANDES_FIELDS = {
 export const TACHE_STATUTS = ["À faire", "En cours", "Mise en attente", "Terminé", "Annulée"] as const;
 export const TACHE_STATUTS_CLOS = ["Terminé", "Annulée"] as const;
 export const BALLE_CHEZ = ["Christel", "PENA", "Prestataire", "Administration"] as const;
+// Types proposés pour un compte-rendu saisi à la main (« Email » est réservé aux entrées validées depuis n8n).
+export const TYPES_COMPTE_RENDU = ["Visite terrain", "Réunion / Entretien", "Point dossier", "Autre"] as const;
 export const JOURNAL_ORIGINES = ["Email", "Réunion / Entretien", "Point dossier", "Visite terrain", "Autre"] as const;
 export const TACHE_PRIORITES = ["Urgente", "Haute", "Normale", "Basse"] as const;
 export const ROLES = ["Admin", "Contributeur"] as const;

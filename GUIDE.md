@@ -38,7 +38,10 @@ Les Contributeurs peuvent aussi saisir un compte-rendu sur tout sujet de leurs s
 
 ## C. Interroger le suivi depuis Claude (connecteur « Suivi PENA »)
 
-Claude peut consulter le suivi **en votre nom, avec exactement vos droits**, sans copier-coller. Pour l'instant : **lecture seule**, et **réservé au compte Admin** (vous). Rien ne peut être modifié par Claude.
+Claude peut consulter le suivi et y écrire **en votre nom, avec exactement vos droits**, sans copier-coller. **Réservé au compte Admin** (vous) pour l'instant.
+
+- **Consulter** : vues de pilotage, volets, sujets, fiche avec historique du journal, recherche.
+- **Écrire** (depuis le 14/10/2026) : ajouter un compte-rendu au journal (avec, si vous le demandez, mise à jour du sujet), ou mettre à jour la prochaine étape, la balle, le prochain point ou le statut d'un sujet. Claude vous demande **confirmation avant chaque écriture** ; les contrôles sont exactement ceux de l'application (3 champs obligatoires sur un sujet ouvert, rien d'enregistré à moitié). Les entrées de journal saisies par Claude se terminent par **« (saisi via Claude) »**.
 
 **Brancher le connecteur (une seule fois)** :
 1. Dans Claude (web ou application) : **Paramètres → Connecteurs → Ajouter un connecteur personnalisé**.
@@ -47,6 +50,10 @@ Claude peut consulter le suivi **en votre nom, avec exactement vos droits**, san
 4. Cliquez sur **Autoriser**. C'est fait : la connexion est renouvelée automatiquement (l'accès est revérifié dans Airtable à chaque question).
 
 **Exemples de questions** : « Qu'est-ce qui est à moi cette semaine ? », « Qu'est-ce qui est en retard sur PE ? », « Où en est le volet Eaux pluviales ? », « Résume-moi l'historique du sujet SOLREM », « Trouve tout ce qui parle de voirie ».
+
+**Exemples d'écriture** : « Ajoute au sujet SOLREM un compte-rendu de ma visite de ce matin avec V. Lorcet : … et passe la balle à Prestataire, prochain point le 28/10 », « Sur le sujet Plans VRD PE, mets la prochaine étape à "Attendre la version définitive du plan de T. Taillet" ». Si une modification oublierait l'un des 3 champs d'un sujet ouvert, ou si un participant est introuvable ou ambigu, rien n'est enregistré et Claude vous dit pourquoi.
+
+Si Claude ne propose pas les outils d'écriture (connecteur branché avant leur ajout), ouvrez une nouvelle conversation ; à défaut, déconnectez puis reconnectez « Suivi PENA » dans les paramètres de Claude.
 
 **Retirer l'accès** : supprimez le connecteur dans les paramètres de Claude ; passer un compte en « Suspendu » dans UTILISATEURS coupe aussi l'accès immédiatement.
 

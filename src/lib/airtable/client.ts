@@ -20,6 +20,26 @@ function requireToken() {
   return token;
 }
 
+/**
+ * Invalide le cache d'une table après une écriture. updateTag() (l'auteur voit
+ * aussitôt sa modification) n'est permis que dans une Server Action ; depuis une
+ * route (connecteur Claude /api/mcp), on utilise revalidateTag(…, { expire: 0 }),
+ * l'équivalent immédiat prévu par Next 16. L'écriture Airtable a déjà réussi à ce
+ * stade : un échec d'invalidation ne doit jamais la faire passer pour un échec.
+ */
+async function invaliderCache(tableId: string) {
+  const { updateTag, revalidateTag } = await import("next/cache");
+  try {
+    updateTag(airtableTag(tableId));
+  } catch {
+    try {
+      revalidateTag(airtableTag(tableId), { expire: 0 });
+    } catch (err) {
+      console.error("Invalidation du cache impossible après écriture Airtable :", err);
+    }
+  }
+}
+
 type AirtableFieldValue = unknown;
 
 export type AirtableRecord<TFields extends Record<string, AirtableFieldValue> = Record<string, AirtableFieldValue>> = {
@@ -124,8 +144,7 @@ export async function createRecords<TFields extends Record<string, AirtableField
     body: JSON.stringify({ records, typecast: true }),
     cache: "no-store",
   });
-  const { updateTag } = await import("next/cache");
-  updateTag(airtableTag(tableId));
+  await invaliderCache(tableId);
   return data.records as AirtableRecord<TFields>[];
 }
 
@@ -139,8 +158,7 @@ export async function updateRecords<TFields extends Record<string, AirtableField
     body: JSON.stringify({ records, typecast: true }),
     cache: "no-store",
   });
-  const { updateTag } = await import("next/cache");
-  updateTag(airtableTag(tableId));
+  await invaliderCache(tableId);
   return data.records as AirtableRecord<TFields>[];
 }
 
@@ -152,6 +170,5 @@ export async function deleteRecords(tableId: string, recordIds: string[]): Promi
     method: "DELETE",
     cache: "no-store",
   });
-  const { updateTag } = await import("next/cache");
-  updateTag(airtableTag(tableId));
+  await invaliderCache(tableId);
 }

@@ -8,9 +8,13 @@ import { filterDossierBySite } from "@/lib/site-filter";
 import { estOuvert, pointDepasse, aujourdhui } from "@/lib/pilotage";
 import { VUES, vuesPilotage, type VueId } from "@/lib/pilotage-vues";
 import { urlApp } from "@/lib/auth/oauth";
+import { BALLE_CHEZ, TACHE_STATUTS, TYPES_COMPTE_RENDU } from "@/lib/airtable/constants";
+import { enregistrerCompteRendu, mettreAJourSujet, type MajSujet } from "@/lib/services/ecritures";
+import { parisLocalVersIso } from "@/lib/format";
 
 /**
- * Outils du connecteur MCP « Suivi PENA » — phase 1 : LECTURE SEULE.
+ * Outils du connecteur MCP « Suivi PENA » : lecture (phase 1) et écriture (phase 2,
+ * mêmes contrôles que l'application via lib/services/ecritures.ts).
  * Chaque appel recharge le dossier avec loadDossier(user) : même périmètre de
  * site que l'application, droits relus dans Airtable à chaque requête.
  */
@@ -70,8 +74,9 @@ export function creerServeurMcp(user: Utilisateur): McpServer {
       instructions:
         "Suivi du dossier ICPE de PENA Métaux (PM) et PENA Environnement (PE). Structure : site → volet → sujet ; " +
         "chaque sujet ouvert a une prochaine étape, un « balle chez » (Christel, PENA, Prestataire, Administration) " +
-        "et une date de prochain point. Commencer par vues_pilotage pour « où on en est ». Données confidentielles, " +
-        "lecture seule : pour modifier, renvoyer vers le lien de la fiche dans l'application.",
+        "et une date de prochain point. Commencer par vues_pilotage pour « où on en est ». Données confidentielles. " +
+        "Avant d'écrire (ajouter_compte_rendu, mettre_a_jour_sujet), retrouver l'ID du sujet, récapituler à " +
+        "l'utilisateur ce qui sera enregistré et n'écrire qu'avec son accord.",
     },
   );
 
@@ -186,7 +191,8 @@ export function creerServeurMcp(user: Utilisateur): McpServer {
         .map((j) => ({
           date: j.date,
           origine: j.origine,
-          auteur: noms(j.contactIds),
+          // Pour un e-mail validé, « Contact associé » est l'expéditeur ; sinon, l'auteur de la saisie.
+          [j.origine === "Email" ? "contact" : "auteur"]: noms(j.contactIds),
           participants: noms(j.participantIds),
           texte: j.description,
           suites: j.suites || undefined,
@@ -231,6 +237,104 @@ export function creerServeurMcp(user: Utilisateur): McpServer {
           texte: j.description,
         })),
       });
+    },
+  );
+
+  // --- Phase 2 : écriture ----------------------------------------------------
+  // Mêmes contrôles que l'application (services/ecritures.ts). Annotées « non
+  // lecture seule » : Claude demande une confirmation avant chaque appel.
+  const ECRITURE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
+  const MENTION = "(saisi via Claude)";
+
+  const schemaMaj = {
+    prochaine_etape: z.string().max(2000).optional().describe("Nouvelle prochaine étape (texte)."),
+    balle_chez: z.enum(BALLE_CHEZ).optional().describe("Qui a la main maintenant."),
+    prochain_point: z.string().optional().describe("Date du prochain point, AAAA-MM-JJ."),
+    statut: z.enum(TACHE_STATUTS).optional().describe("Nouveau statut du sujet."),
+  };
+  const versMaj = (a: { prochaine_etape?: string; balle_chez?: string; prochain_point?: string; statut?: string }): MajSujet => ({
+    ...(a.prochaine_etape !== undefined ? { prochaineEtape: a.prochaine_etape } : {}),
+    ...(a.balle_chez !== undefined ? { balleChez: a.balle_chez } : {}),
+    ...(a.prochain_point !== undefined ? { prochainPoint: a.prochain_point } : {}),
+    ...(a.statut !== undefined ? { statut: a.statut } : {}),
+  });
+
+  serveur.registerTool(
+    "ajouter_compte_rendu",
+    {
+      title: "Ajouter un compte-rendu au journal",
+      description:
+        "Ajoute un compte-rendu ou une action au journal d'un sujet (visite, réunion, appel…), et peut mettre à jour " +
+        "le pilotage du sujet en même temps. Texte factuel, sans donnée de facturation ni de santé de tiers. " +
+        "Récapituler à l'utilisateur et obtenir son accord avant d'appeler.",
+      inputSchema: {
+        sujet_id: z.string().describe("ID du sujet (rec…)."),
+        type: z.enum(TYPES_COMPTE_RENDU).describe("Point dossier = appel ou point téléphonique."),
+        texte: z.string().min(1).max(10000).describe("Le compte-rendu."),
+        date: z
+          .string()
+          .optional()
+          .describe("Date et heure à Paris, « AAAA-MM-JJ HH:MM » (par défaut : maintenant)."),
+        participants: z.array(z.string()).max(20).optional().describe("Noms des personnes présentes (contacts existants)."),
+        lien_document: z.string().optional().describe("Lien https vers un document (OneDrive, rapport) ; aucun fichier n'est stocké."),
+        mise_a_jour_sujet: z.object(schemaMaj).optional().describe("Facultatif : champs du sujet à modifier en même temps."),
+      },
+      annotations: ECRITURE,
+    },
+    async ({ sujet_id, type, texte, date, participants, lien_document, mise_a_jour_sujet }) => {
+      let dateIso: string | null = null;
+      if (date) {
+        dateIso = parisLocalVersIso(date.trim().replace(" ", "T").slice(0, 16));
+        if (!dateIso) return erreur("Date invalide : attendu « AAAA-MM-JJ HH:MM » (heure de Paris).");
+      }
+
+      // Participants désignés par leur nom : chaque nom doit désigner un seul contact du périmètre.
+      const participantIds: string[] = [];
+      if (participants?.length) {
+        const d = await loadDossier(user);
+        for (const nom of participants) {
+          const q = normaliser(nom.trim());
+          const trouves = d.contacts.filter((c) => normaliser(`${c.nom} ${c.organisation}`).includes(q));
+          if (trouves.length === 1) participantIds.push(trouves[0].id);
+          else if (trouves.length === 0) return erreur(`Rien n'a été enregistré : aucun contact ne correspond à « ${nom} ».`);
+          else {
+            return erreur(
+              `Rien n'a été enregistré : « ${nom} » est ambigu (${trouves.map((c) => c.nom).join(", ")}). Précisez le nom.`,
+            );
+          }
+        }
+      }
+
+      const r = await enregistrerCompteRendu(user, {
+        tacheId: sujet_id,
+        origine: type,
+        description: texte,
+        dateIso,
+        lienDocument: lien_document ?? "",
+        participantIds,
+        maj: mise_a_jour_sujet ? versMaj(mise_a_jour_sujet) : null,
+        mention: MENTION,
+      });
+      return r.ok ? resultat({ message: r.message, lien: `${urlApp()}/taches/${r.tacheId}` }) : erreur(r.message);
+    },
+  );
+
+  serveur.registerTool(
+    "mettre_a_jour_sujet",
+    {
+      title: "Mettre à jour le pilotage d'un sujet",
+      description:
+        "Modifie la prochaine étape, « balle chez », la date du prochain point et/ou le statut d'un sujet. Seuls les " +
+        "champs fournis changent. Un sujet ouvert doit garder ses 3 champs de pilotage remplis. Réservé au " +
+        "responsable du sujet. Récapituler à l'utilisateur et obtenir son accord avant d'appeler.",
+      inputSchema: { sujet_id: z.string().describe("ID du sujet (rec…)."), ...schemaMaj },
+      annotations: ECRITURE,
+    },
+    async ({ sujet_id, ...champs }) => {
+      const maj = versMaj(champs);
+      if (Object.keys(maj).length === 0) return erreur("Aucun champ à modifier.");
+      const r = await mettreAJourSujet(user, sujet_id, maj);
+      return r.ok ? resultat({ message: r.message, lien: `${urlApp()}/taches/${r.tacheId}` }) : erreur(r.message);
     },
   );
 

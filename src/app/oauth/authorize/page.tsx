@@ -76,7 +76,9 @@ export default async function AutorisationPage({ searchParams }: { searchParams:
       <h1 className="text-lg font-semibold text-slate-900">Autoriser {client.nom} ?</h1>
       <p className="text-sm text-slate-600">
         <strong>{client.nom}</strong> demande à consulter le suivi ICPE PENA <strong>en votre nom</strong> ({user.nom}) :
-        vues de pilotage, sujets, volets et journal, avec exactement vos droits. Il ne pourra rien modifier.
+        vues de pilotage, sujets, volets et journal, avec exactement vos droits. Il pourra aussi ajouter un
+        compte-rendu au journal et mettre à jour le pilotage d&apos;un sujet, toujours après vous avoir demandé
+        confirmation, et avec les mêmes contrôles que l&apos;application.
       </p>
       <p className="text-xs text-slate-500">
         Ce que Claude lit apparaîtra dans vos conversations. Vous pourrez retirer l&apos;accès à tout moment en
