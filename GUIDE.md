@@ -15,6 +15,8 @@ Le tableau de bord affiche quatre tuiles. Un clic sur une tuile affiche la liste
 | **En retard** | prochain point dépassé | idem, sur ses sites |
 | **Cette semaine** | prochain point dans les 7 prochains jours | idem, sur ses sites |
 
+**Changer le statut sans ouvrir la fiche** : à droite de chaque sujet, la petite liste de statut s'enregistre dès que vous choisissez une valeur (vous, ou le responsable du sujet ; les autres voient le statut en simple badge). Un sujet passé à « Terminé » ou « Annulée » quitte les vues. Pour rouvrir un sujet, ses trois champs de pilotage doivent être remplis.
+
 « Ses sujets » = ceux dont il est le **Responsable**. Les onglets de site (Tous les sites / PENA METAUX / …) filtrent aussi ces vues. Le chiffre « En retard » passe en rouge dès qu'un sujet l'est.
 
 **Routine conseillée** : chaque matin, « En retard » puis « Cette semaine » ; après chaque échange, mettre à jour la prochaine étape et la balle (fiche du sujet, ou en même temps qu'un compte-rendu).

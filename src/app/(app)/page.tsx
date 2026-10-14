@@ -5,7 +5,8 @@ import { filterDossierBySite } from "@/lib/site-filter";
 import { SiteFilterTabs } from "@/components/SiteFilterTabs";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatDate } from "@/lib/format";
-import { isAdmin } from "@/lib/auth/rbac";
+import { isAdmin, canEditTask } from "@/lib/auth/rbac";
+import { StatutRapide } from "@/components/StatutRapide";
 import { pointDepasse } from "@/lib/pilotage";
 import { VUES, vuesPilotage, type VueId } from "@/lib/pilotage-vues";
 
@@ -88,27 +89,35 @@ export default async function DashboardPage({
             const depasse = pointDepasse(t.statut, t.prochainPoint);
             const responsables = t.responsableContactIds.map((id) => contactParId.get(id)).filter(Boolean).join(", ");
             return (
-              <Link key={t.id} href={`/taches/${t.id}`} className="block p-3 text-sm hover:bg-slate-50">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium text-slate-900">{t.nom}</span>
-                  <span className="flex items-center gap-2 whitespace-nowrap">
-                    {t.balleChez && <StatusBadge value={t.balleChez} />}
-                    <span className={depasse ? "font-semibold text-red-600" : "text-slate-600"}>
-                      {formatDate(t.prochainPoint)}
+              // La liste de statut est À CÔTÉ du lien, pas dedans (un contrôle dans un <a> ouvrirait la fiche).
+              <div key={t.id} className="flex items-start gap-3 p-3 text-sm hover:bg-slate-50">
+                <Link href={`/taches/${t.id}`} className="block min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="font-medium text-slate-900">{t.nom}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      {t.balleChez && <StatusBadge value={t.balleChez} />}
+                      <span className={depasse ? "font-semibold text-red-600" : "text-slate-600"}>
+                        {formatDate(t.prochainPoint)}
+                      </span>
                     </span>
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  {t.sousProjetIds.map((id) => voletParId.get(id)).filter(Boolean).join(", ") || "Sans volet"}
-                  {responsables && ` · Responsable : ${responsables}`}
-                </p>
-                {t.prochaineEtape && (
-                  <p className="mt-1 whitespace-pre-wrap text-slate-700">
-                    <span className="text-slate-400">Prochaine étape : </span>
-                    {t.prochaineEtape}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {t.sousProjetIds.map((id) => voletParId.get(id)).filter(Boolean).join(", ") || "Sans volet"}
+                    {responsables && ` · Responsable : ${responsables}`}
                   </p>
+                  {t.prochaineEtape && (
+                    <p className="mt-1 whitespace-pre-wrap text-slate-700">
+                      <span className="text-slate-400">Prochaine étape : </span>
+                      {t.prochaineEtape}
+                    </p>
+                  )}
+                </Link>
+                {canEditTask(user, t) ? (
+                  <StatutRapide tacheId={t.id} statut={t.statut} />
+                ) : (
+                  <StatusBadge value={t.statut} />
                 )}
-              </Link>
+              </div>
             );
           })}
         </div>
