@@ -43,14 +43,18 @@ export const TACHES_FIELDS = {
   ECHEANCE: "fldneje1KrSlJLm2Y",
   JOURNAL: "fld2j62ZjircOi6LF",
   DESCRIPTION_OBJECTIFS: "fldR4IHMCkWSDecnq",
+  // Dépréciés depuis la v2 (14/10/2026) : plus affichés ni saisis, conservés dans Airtable.
   PROCHAINE_RELANCE: "fldvo1S3qprru5eRu",
   DERNIERE_RELANCE: "fldTt0y51ef2ead46",
   PRIORITE: "fldyMQmTNkvmf9Lc8",
-  RESPONSABLE_ANCIEN_TEXTE: "fldyXyV6RNiQSVRrg",
   PARTIES_PRENANTES: "fldFwgUhvNl7OGCYm",
   PRESTATAIRE_ANCIEN_TEXTE: "fldKs6Bq29OX09Kbl",
   RESPONSABLE_LIEN: "fldAhpJcotmZCboiD",
   PRESTATAIRE_LIEN: "fldTxUuDSdlDvQtdH",
+  // Pilotage v2 : obligatoires sur tout sujet ouvert (statut ≠ Terminé / Annulée).
+  PROCHAINE_ETAPE: "fldQYFwKugQeg2Oql",
+  BALLE_CHEZ: "fld2CJqUzAE5PQglH",
+  PROCHAIN_POINT: "fldTLmxKHYYfQaCne",
 } as const;
 
 export const JOURNAL_FIELDS = {
@@ -61,6 +65,10 @@ export const JOURNAL_FIELDS = {
   DOCUMENT_ASSOCIE: "fldCn0V5mxaNEUWoX",
   SUITES: "fldt82IQ9K4DzVY4k",
   ORIGINE: "fldb9IhUxNickiifo",
+  ID_MESSAGE_SOURCE: "fldrFc26YXzeQEoDs",
+  LIEN_DOCUMENT: "fldMX7bjAqiSrl51a",
+  /** Personnes présentes — distinct de CONTACT_ASSOCIE, qui désigne l'auteur (droit de modifier l'entrée). */
+  PARTICIPANTS: "fldlDvbUL8pfb5QVO",
 } as const;
 
 export const CONTACTS_FIELDS = {
@@ -103,6 +111,10 @@ export const ENTREES_A_VALIDER_FIELDS = {
   TACHE_SUGGEREE: "fldRlvjCTO6uM9VxL",
   STATUT: "fldXhYl1ENEzAxteW",
   ENTREE_LIEE: "fld99jMDy44gaQvnB",
+  ID_MESSAGE_SOURCE: "fldlr11SNY9cxjJtE",
+  ACTIONS_DEMANDEES: "fldwqEiTTBXF3mlE7",
+  LIEN_DOCUMENT: "fldW7IXN7BTRYwkFF",
+  ORIGINE: "fldmoc83Alt9qrjEn",
 } as const;
 
 export const PLANNING_VISITES_FIELDS = {
@@ -126,6 +138,9 @@ export const DEMANDES_FIELDS = {
 
 // Valeurs des champs à choix unique, telles qu'elles existent aujourd'hui dans la base.
 export const TACHE_STATUTS = ["À faire", "En cours", "Mise en attente", "Terminé", "Annulée"] as const;
+export const TACHE_STATUTS_CLOS = ["Terminé", "Annulée"] as const;
+export const BALLE_CHEZ = ["Christel", "PENA", "Prestataire", "Administration"] as const;
+export const JOURNAL_ORIGINES = ["Email", "Réunion / Entretien", "Point dossier", "Visite terrain", "Autre"] as const;
 export const TACHE_PRIORITES = ["Urgente", "Haute", "Normale", "Basse"] as const;
 export const ROLES = ["Admin", "Contributeur"] as const;
 export const UTILISATEUR_STATUTS = ["Actif", "Suspendu"] as const;
