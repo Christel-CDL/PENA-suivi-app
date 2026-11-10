@@ -1,15 +1,22 @@
 // Nœud « Filtre les emails PENA » : ne garde que les mails liés au dossier PENA
 // (domaine @groupepena.fr en De/À/Cc, ou mot « pena » dans l'objet ou le corps),
-// hors logiciel de facturation CDL.
+// hors expéditeurs exclus ci-dessous.
 const items = $input.first().json.value || [];
 const results = [];
-const EXCLUDE_SENDER = 'cdlexpertises@isanetfact.facturation.io';
+// Expéditeurs qui citent « PENA » sans rien apporter au dossier ICPE :
+// - logiciel de facturation CDL ;
+// - notifications Welyb du cabinet comptable Paquier (listent les factures « PENA METAUX »,
+//   faux positif constaté le 05/11/2026).
+const EXCLUDE_SENDERS = new Set([
+  'cdlexpertises@isanetfact.facturation.io',
+  'noreply@paquier.welyb.fr',
+]);
 
 function addr(a) { return ((a && a.emailAddress && a.emailAddress.address) || '').toLowerCase(); }
 
 for (const msg of items) {
   const fromAddr = addr(msg.from) || addr(msg.sender);
-  if (fromAddr === EXCLUDE_SENDER) continue;
+  if (EXCLUDE_SENDERS.has(fromAddr)) continue;
 
   const toAddrs = (msg.toRecipients || []).map(addr);
   const ccAddrs = (msg.ccRecipients || []).map(addr);
